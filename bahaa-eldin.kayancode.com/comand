@@ -1,0 +1,5 @@
+# ssh -i ~/.ssh/bhaa_new kayabrpq@198.54.116.4 -p 21098
+# cd ~/public_html/bahauddin
+# php artisan migrate:fresh
+# php artisan db:seed
+# php artisan passport:client --personal
