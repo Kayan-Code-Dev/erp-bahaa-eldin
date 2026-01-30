@@ -1,0 +1,48 @@
+sequenceDiagram
+    participant Frontend
+    participant API
+    participant Backend
+    participant Database
+    
+    Note over Frontend,Database: Order Creation Flow
+    
+    Frontend->>API: POST /orders (with items, discounts)
+    API->>Backend: Validate Request
+    Backend->>Backend: Calculate Total Price
+    Backend->>Database: Create Order
+    Backend->>Database: Attach Items
+    Backend->>Backend: Check if paid greater than 0
+    alt paid greater than 0
+        Backend->>Database: Create Payment (initial)
+    end
+    Database-->>Backend: Order Created
+    Backend-->>API: Order Data
+    API-->>Frontend: 201 Created + Order Object
+    
+    Note over Frontend,Database: Payment Flow
+    
+    Frontend->>API: POST /orders/id/add-payment
+    API->>Backend: Validate Payment
+    Backend->>Database: Create Payment Record
+    Backend->>Backend: Recalculate paid/remaining
+    Backend->>Database: Update Order
+    Database-->>Backend: Updated Order
+    Backend-->>API: Order + Payment
+    API-->>Frontend: 200 OK + Response
+    
+    Note over Frontend,Database: Status Transition Flow
+    
+    Frontend->>API: PUT /orders/id status: delivered
+    API->>Backend: Validate Status Transition
+    Backend->>Database: Load Custodies
+    Backend->>Backend: Validate Rules
+    alt Validation Failed
+        Backend-->>API: 422 Validation Error
+        API-->>Frontend: Error Messages
+    else Validation Passed
+        Backend->>Database: Update Order Status
+        Database-->>Backend: Updated Order
+        Backend-->>API: Order Data
+        API-->>Frontend: 200 OK + Order
+    end
+

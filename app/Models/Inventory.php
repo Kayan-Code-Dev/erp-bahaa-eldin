@@ -4,40 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\LogsActivity;
 
 class Inventory extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes, LogsActivity;
 
-    protected $fillable = [
-        'branch_id',
-        'subCategories_id',
-        'name',
-        'code',
-        'price',
-        'type',
-        'notes',
-        'quantity',
-    ];
+    protected $fillable = ['name', 'inventoriable_type', 'inventoriable_id'];
 
-    protected $casts = [
-        'price' => 'decimal:2',
-        'quantity' => 'decimal:2',
-    ];
-
-
-    public function branch()
+    public function inventoriable()
     {
-        return $this->belongsTo(Branch::class, 'branch_id', 'id');
+        return $this->morphTo();
     }
 
-    public function subCategory()
+    public function clothes()
     {
-        return $this->belongsTo(SubCategory::class, 'subCategories_id', 'id');
+        return $this->belongsToMany(Cloth::class, 'cloth_inventory')
+                    ->withTimestamps();
     }
 
-    public function inventoryTransfer()
+    public function orders()
     {
-        return $this->hasMany(InventoryTransfer::class, 'inventory_id', 'id');
+        return $this->hasMany(Order::class);
     }
 }

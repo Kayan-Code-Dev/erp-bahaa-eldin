@@ -2,36 +2,29 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\LogsActivity;
 
 class City extends Model
 {
-    protected $fillable = [
-        'name',
-        'latitude',
-        'longitude',
-        'code',
-        'active',
-        'country_id',
-    ];
+    use HasFactory, SoftDeletes, LogsActivity;
+
+    protected $fillable = ['country_id', 'name'];
 
     public function country()
     {
-        return $this->belongsTo(Country::class, 'country_id', 'id');
+        return $this->belongsTo(Country::class);
     }
 
-    public function admins()
+    public function addresses()
     {
-        return $this->hasMany(Admin::class, 'city_id', 'id');
+        return $this->hasMany(Address::class);
     }
 
-    public function branchManagers()
+    public function inventories()
     {
-        return $this->hasMany(BranchManager::class, 'city_id', 'id');
-    }
-
-    public function employee()
-    {
-        return $this->hasMany(Employee::class, 'city_id', 'id');
+        return $this->hasMany(Inventory::class);
     }
 }

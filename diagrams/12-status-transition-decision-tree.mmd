@@ -1,0 +1,50 @@
+flowchart TD
+    Start([Current Status]) --> CheckCurrent{Current<br/>Status?}
+    
+    CheckCurrent -->|created| CanGoTo1[Can Go To:<br/>- partially_paid<br/>- paid<br/>- canceled]
+    
+    CheckCurrent -->|partially_paid| CanGoTo2[Can Go To:<br/>- paid<br/>- canceled]
+    
+    CheckCurrent -->|paid| CanGoTo3[Can Go To:<br/>- delivered requires custody<br/>- canceled]
+    
+    CheckCurrent -->|delivered| CanGoTo4[Can Go To:<br/>- finished requires all validations<br/>- canceled]
+    
+    CheckCurrent -->|finished| CanGoTo5[Can Go To:<br/>- None final state]
+    
+    CheckCurrent -->|canceled| CanGoTo6[Can Go To:<br/>- None final state]
+    
+    CanGoTo3 --> ValidateDelivered[Validate:<br/>- Has custody<br/>- All pending]
+    ValidateDelivered --> ValidDelivered{Valid?}
+    ValidDelivered -->|Yes| AllowDelivered[Allow Transition]
+    ValidDelivered -->|No| BlockDelivered[Block with Error]
+    
+    CanGoTo4 --> ValidateFinished[Validate:<br/>- All custody decided<br/>- Returned has proof<br/>- No pending payments<br/>- Payment matches]
+    ValidateFinished --> ValidFinished{Valid?}
+    ValidFinished -->|Yes| AllowFinished[Allow Transition]
+    ValidFinished -->|No| BlockFinished[Block with Error]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

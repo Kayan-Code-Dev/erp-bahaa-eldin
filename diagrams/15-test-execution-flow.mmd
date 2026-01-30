@@ -1,0 +1,97 @@
+sequenceDiagram
+    participant TestRunner as PHPUnit TestRunner
+    participant TestClass as OrderCustodyPaymentScenariosTest
+    participant DebugHelpers as Debug Helper Methods
+    participant API as OrderController API
+    participant OrderModel as Order Model
+    participant PaymentModel as Payment Model
+    participant DB as Database
+
+    TestRunner->>TestClass: testAllScenarios()
+    activate TestClass
+    
+    TestClass->>TestClass: setUp()<br/>- Run migrations<br/>- Seed database<br/>- Get test data<br/>- Create auth token
+    TestClass->>DB: Artisan::call('migrate')
+    DB-->>TestClass: Migrations complete
+    TestClass->>DB: Artisan::call('db:seed')
+    DB-->>TestClass: Seeding complete
+    
+    TestClass->>TestClass: echo "=== ORDER, CUSTODY & PAYMENT SCENARIOS TEST ==="
+    
+    loop For each scenario
+        TestClass->>TestClass: echo "SCENARIO X: [name]"
+        TestClass->>TestClass: Call scenario method<br/>(e.g., testCreateOrderWithClothId)
+        activate TestClass
+        
+        TestClass->>TestClass: echo "=== SCENARIO X ==="<br/>echo "Description: ..."
+        TestClass->>TestClass: echo "--- Action: ... ---"
+        
+        TestClass->>API: POST /api/v1/orders<br/>(with auth headers)
+        activate API
+        API->>DB: Validate & create order
+        DB-->>API: Order created
+        API-->>TestClass: Response (201/422)
+        deactivate API
+        
+        alt Response is 201 (Success)
+            TestClass->>OrderModel: Order::find(id)
+            OrderModel->>DB: Query order
+            DB-->>OrderModel: Order data
+            OrderModel-->>TestClass: Order object
+            
+            TestClass->>DebugHelpers: debugPrintOrderState(order)
+            activate DebugHelpers
+            DebugHelpers->>OrderModel: order->refresh()
+            DebugHelpers->>OrderModel: order->load(['payments', 'custodies'])
+            DebugHelpers->>TestClass: Print order state
+            deactivate DebugHelpers
+            
+            TestClass->>DebugHelpers: debugPrintPaymentBreakdown(order)
+            activate DebugHelpers
+            DebugHelpers->>PaymentModel: Query payments
+            PaymentModel->>DB: Get payments
+            DB-->>PaymentModel: Payment data
+            PaymentModel-->>DebugHelpers: Payments collection
+            DebugHelpers->>TestClass: Print payment breakdown
+            deactivate DebugHelpers
+            
+            TestClass->>TestClass: echo "--- Validation ---"<br/>Compare expected vs actual
+            TestClass->>TestClass: Return ['success' => true, 'message' => ...]
+        else Response is 422 (Error)
+            TestClass->>TestClass: echo "--- Error ---"<br/>Print error message
+            TestClass->>TestClass: Return ['success' => false, 'message' => ...]
+        end
+        
+        TestClass->>TestClass: echo "Result: ✓ SUCCESS / ✗ FAILED"
+        TestClass->>TestClass: results[] = result
+        deactivate TestClass
+    end
+    
+    TestClass->>TestClass: echo "=== TEST SUMMARY ==="<br/>Calculate passed/failed
+    TestClass->>TestClass: assertTrue(passed > 0)
+    TestClass-->>TestRunner: Return results array
+    deactivate TestClass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -40,27 +40,6 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
-
-        'admin-api' => [
-            'driver' => 'passport',
-            'provider' => 'admins',
-        ],
-
-        'branchManager-api' => [
-            'driver' => 'passport',
-            'provider' => 'branchManagers',
-        ],
-
-
-        'branch-api' => [
-            'driver' => 'passport',
-            'provider' => 'branches',
-        ],
-
-        'employee-api' => [
-            'driver' => 'passport',
-            'provider' => 'employees',
-        ],
     ],
 
     /*
@@ -84,27 +63,6 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
-        ],
-
-        'admins' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\Admin::class,
-        ],
-
-        'branchManagers' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\BranchManager::class,
-        ],
-
-
-        'branches' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\Branch::class,
-        ],
-
-        'employees' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\EmployeeLogin::class,
         ],
 
         // 'users' => [
@@ -135,15 +93,6 @@ return [
     'passwords' => [
         'users' => [
             'provider' => 'users',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
-            'throttle' => 60,
-        ],
-
-
-
-        'admins' => [
-            'provider' => 'admins',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
             'throttle' => 60,

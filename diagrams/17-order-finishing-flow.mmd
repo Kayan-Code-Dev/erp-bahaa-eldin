@@ -1,0 +1,142 @@
+sequenceDiagram
+    participant Client as Client/Frontend
+    participant API as OrderController
+    participant OrderModel as Order Model
+    participant CustodyModel as Custody Model
+    participant PaymentModel as Payment Model
+    participant CustodyReturnModel as CustodyReturn Model
+    participant DB as Database
+
+    Client->>API: PUT /api/v1/orders/{id}<br/>{status: 'finished'}
+    activate API
+    
+    API->>OrderModel: Order::findOrFail(id)
+    OrderModel->>DB: SELECT * FROM orders WHERE id=?
+    DB-->>OrderModel: Order data
+    OrderModel-->>API: Order object
+    
+    API->>OrderModel: Load custodies and payments
+    OrderModel->>DB: Load relationships
+    DB-->>OrderModel: Custodies and payments
+    
+    API->>API: validateStatusTransition(order, 'finished')
+    activate API
+    
+    Note over API: Validation Step 1: Check all custody decisions
+    
+    loop For each custody
+        API->>CustodyModel: Check custody status
+        CustodyModel->>DB: Get custody data
+        DB-->>CustodyModel: Custody record
+        
+        alt Custody status is 'pending'
+            API->>API: Add error: "Custody still pending"
+            API-->>Client: 422 Error
+            deactivate API
+            deactivate API
+        else Custody status is 'returned'
+            API->>CustodyReturnModel: Check return proofs
+            CustodyReturnModel->>DB: SELECT * FROM custody_returns WHERE custody_id=?
+            DB-->>CustodyReturnModel: Return records
+            
+            alt No return proof found
+                API->>API: Add error: "Returned custody without proof"
+                API-->>Client: 422 Error
+                deactivate API
+                deactivate API
+            end
+        end
+    end
+    
+    Note over API: Validation Step 2: Check for pending payments
+    
+    API->>PaymentModel: Query pending payments
+    PaymentModel->>DB: SELECT * FROM order_payments<br/>WHERE order_id=? AND status='pending'
+    DB-->>PaymentModel: Pending payments
+    PaymentModel-->>API: Pending payments collection
+    
+    alt Pending payments exist
+        API->>API: Add error: "There are pending payments"
+        API-->>Client: 422 Error
+        deactivate API
+        deactivate API
+    end
+    
+    Note over API: Validation Step 3: Check fee payments
+    
+    API->>PaymentModel: Query pending fee payments
+    PaymentModel->>DB: SELECT * FROM order_payments<br/>WHERE order_id=? AND type='fee' AND status='pending'
+    DB-->>PaymentModel: Pending fee payments
+    PaymentModel-->>API: Pending fee payments collection
+    
+    alt Pending fee payments exist
+        API->>API: Add error: "There are pending fee payments"
+        API-->>Client: 422 Error
+        deactivate API
+        deactivate API
+    end
+    
+    Note over API: Validation Step 4: Validate payment amounts
+    
+    API->>PaymentModel: Query paid non-fee payments
+    PaymentModel->>DB: SELECT SUM(amount) FROM order_payments<br/>WHERE order_id=? AND status='paid' AND type!='fee'
+    DB-->>PaymentModel: Total paid (non-fee)
+    PaymentModel-->>API: totalPaid
+    
+    API->>OrderModel: Get total_price
+    OrderModel-->>API: total_price
+    
+    alt totalPaid < total_price
+        API->>API: Add error: "Total paid less than order total"
+        API-->>Client: 422 Error
+        deactivate API
+        deactivate API
+    end
+    
+    Note over API: All validations passed
+    
+    API->>OrderModel: Update status to 'finished'
+    OrderModel->>DB: UPDATE orders SET status='finished'
+    DB-->>OrderModel: Updated
+    
+    API->>API: checkOrderCanBeFinished(order)
+    activate API
+    API->>CustodyModel: Verify all custody decided
+    API->>PaymentModel: Verify no pending payments
+    API->>OrderModel: Verify payment amounts
+    API-->>API: Can finish: true/false
+    deactivate API
+    
+    API->>OrderModel: Load relationships for response
+    OrderModel->>DB: Eager load all relationships
+    DB-->>OrderModel: Complete order data
+    OrderModel-->>API: Order with all data
+    
+    API->>API: Transform response
+    API-->>Client: 200 OK<br/>{order: {...}, order_finished: true}
+    deactivate API
+    deactivate API
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -2,25 +2,25 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\LogsActivity;
 
 class Category extends Model
 {
-    //
-    protected $fillable = [
-        'branch_id',
-        'name',
-        'description',
-        'active',
-    ];
+    use HasFactory, SoftDeletes, LogsActivity;
 
-    public function branch()
+    protected $fillable = ['name', 'description'];
+
+    public function subcategories()
     {
-        return $this->belongsTo(Branch::class, 'branch_id', 'id');
+        return $this->hasMany(Subcategory::class);
     }
 
-    public function subCategories()
+    public function subcategoryRelations()
     {
-        return $this->hasMany(SubCategory::class, 'category_id', 'id');
+        return $this->belongsToMany(Subcategory::class, 'category_subcategory')
+                    ->withTimestamps();
     }
 }

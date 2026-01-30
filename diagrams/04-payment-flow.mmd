@@ -1,0 +1,71 @@
+sequenceDiagram
+    participant Client
+    participant API
+    participant OrderController
+    participant Order
+    participant Payment
+    participant OrderHistoryService
+
+    Note over Client,OrderHistoryService: Add Payment
+    Client->>API: POST /api/v1/orders/{id}/add-payment<br/>{amount, status, payment_type}
+    API->>OrderController: addPayment(request, id)
+    OrderController->>Order: findOrFail(id)
+    OrderController->>Payment: create({order_id, amount, status, payment_type})
+    Payment-->>OrderController: payment
+    OrderController->>OrderController: recalculateOrderPayments(order)
+    OrderController->>Order: Update paid, remaining, status
+    OrderController->>OrderHistoryService: logPaymentAdded(order, payment_id, amount)
+    OrderController-->>API: Payment and order
+    API-->>Client: JSON response
+
+    Note over Client,OrderHistoryService: Mark Payment as Paid
+    Client->>API: POST /api/v1/orders/{orderId}/payments/{paymentId}/pay
+    API->>OrderController: payPayment(request, orderId, paymentId)
+    OrderController->>Order: findOrFail(orderId)
+    OrderController->>Payment: findOrFail(paymentId)
+    OrderController->>Payment: Validate status != paid/canceled
+    OrderController->>Payment: Update status = 'paid'
+    Payment-->>OrderController: payment
+    OrderController->>OrderController: recalculateOrderPayments(order)
+    OrderController->>Order: Update paid, remaining, status
+    OrderController->>OrderHistoryService: logPaymentUpdated(order, payment_id, 'status', old, 'paid')
+    OrderController-->>API: Payment and order
+    API-->>Client: JSON response
+
+    Note over Client,OrderHistoryService: Cancel Payment
+    Client->>API: POST /api/v1/orders/{orderId}/payments/{paymentId}/cancel
+    API->>OrderController: cancelPayment(request, orderId, paymentId)
+    OrderController->>Order: findOrFail(orderId)
+    OrderController->>Payment: findOrFail(paymentId)
+    OrderController->>Payment: Validate status != canceled
+    OrderController->>Payment: Update status = 'canceled'
+    Payment-->>OrderController: payment
+    OrderController->>OrderController: recalculateOrderPayments(order)
+    OrderController->>Order: Update paid, remaining, status
+    OrderController->>OrderHistoryService: logPaymentCanceled(order, payment_id)
+    OrderController-->>API: Payment and order
+    API-->>Client: JSON response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

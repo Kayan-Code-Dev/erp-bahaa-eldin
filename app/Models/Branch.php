@@ -5,108 +5,66 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Laravel\Passport\HasApiTokens;
-use Illuminate\Support\Str;
-use Spatie\Permission\Traits\HasRoles;
+use App\Models\Traits\LogsActivity;
 
-class Branch extends Authenticatable
+class Branch extends Model
 {
-    use HasFactory, SoftDeletes, HasApiTokens, HasRoles;
+    use HasFactory, SoftDeletes, LogsActivity;
 
-    protected $guard_name = 'branch-api';
-    protected $fillable = [
-        'uuid',
-        'branch_manager_id',
-        'name',
-        'email',
-        'phone',
-        'password',
-        'location',
-        'latitude',
-        'longitude',
-        'blocked',
-        'status',
-        'fcm_token',
-        'ip_address',
-        'last_login',
-        'last_logout',
-        'otp_code',
-        'code_expires_at',
-    ];
+    protected $fillable = ['branch_code', 'name', 'address_id'];
 
-    protected $hidden = [
-        'password',
-        'otp_code',
-        'fcm_token',
-    ];
-    protected $casts = [
-        'blocked' => 'boolean',
-        'last_login' => 'datetime',
-        'last_logout' => 'datetime',
-        'code_expires_at' => 'datetime',
-    ];
-
-
+    /**
+     * Boot method to auto-create cashbox when branch is created
+     */
     protected static function boot()
     {
         parent::boot();
-        static::creating(function ($model) {
-            if (empty($model->uuid)) {
-                $model->uuid = (string) Str::uuid();
+
+        // Auto-create a cashbox when a branch is created
+        static::created(function ($branch) {
+            if (!$branch->cashbox) {
+                $branch->cashbox()->create([
+                    'name' => "{$branch->name} Cashbox",
+                    'initial_balance' => 0,
+                    'current_balance' => 0,
+                    'description' => "Cashbox for branch: {$branch->name}",
+                    'is_active' => true,
+                ]);
             }
         });
     }
 
+    public function inventory()
+    {
+        return $this->morphOne(Inventory::class, 'inventoriable');
+    }
+
+    public function address()
+    {
+        return $this->belongsTo(Address::class);
+    }
+
     /**
-     * العلاقة مع مدير الفرع
+     * Get the cashbox for this branch
      */
-    public function manager()
+    public function cashbox()
     {
-        return $this->belongsTo(BranchManager::class, 'branch_manager_id', 'id');
+        return $this->hasOne(Cashbox::class);
     }
 
-    public function department()
+    /**
+     * Get the workshop for this branch (1:1 relationship)
+     */
+    public function workshop()
     {
-        return $this->hasMany(Department::class, 'branch_id', 'id');
+        return $this->hasOne(Workshop::class);
     }
 
-
-    public function job()
+    public function clothes()
     {
-        return $this->hasMany(BranchJob::class, 'branch_id', 'id');
-    }
-
-    public function employee()
-    {
-        return $this->hasMany(Employee::class, 'branch_id', 'id');
-    }
-
-    public function categories()
-    {
-        return $this->hasMany(Category::class, 'branch_id', 'id');
-    }
-
-    public function inventories()
-    {
-        return $this->hasMany(Inventory::class, 'branch_id', 'id');
-    }
-
-
-    public function fromBranchInventoryTransfer()
-    {
-        return $this->hasMany(InventoryTransfer::class, 'from_branch_id', 'id');
-    }
-
-
-    public function toBranchInventoryTransfer()
-    {
-        return $this->hasMany(InventoryTransfer::class, 'to_branch_id', 'id');
-    }
-
-    public function workShop()
-    {
-        //
-        return $this->hasMany(workShop::class, 'branch_id', 'id');
+        return Cloth::whereHas('inventories', function($query) {
+            $query->where('inventoriable_type', 'branch')
+                  ->where('inventoriable_id', $this->id);
+        });
     }
 }

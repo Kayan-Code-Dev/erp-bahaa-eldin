@@ -12,8 +12,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->api(prepend: [
-            // \Fruitcake\Cors\HandleCors::class,
+        // Register custom middleware aliases
+        $middleware->alias([
+            'permission' => \App\Http\Middleware\CheckPermission::class,
+            'entity.access' => \App\Http\Middleware\CheckEntityAccess::class,
+        ]);
+
+        // Add API request logging middleware to API routes
+        $middleware->api(append: [
+            \App\Http\Middleware\LogApiRequests::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

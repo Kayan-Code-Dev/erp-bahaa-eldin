@@ -1,0 +1,73 @@
+sequenceDiagram
+    participant Client
+    participant API
+    participant OrderController
+    participant Order
+    participant Rent
+    participant Cloth
+    participant OrderHistoryService
+
+    Note over Client,OrderHistoryService: Return Items
+    Client->>API: POST /api/v1/orders/{id}/return<br/>{items: [{cloth_id, status, photos, notes}]}
+    API->>OrderController: returnItems(request, id)
+    OrderController->>Order: findOrFail(id)
+    OrderController->>Order: Load items
+    loop For each item
+        OrderController->>Order: Validate item belongs to order
+        OrderController->>Order: Validate item is rent type
+        OrderController->>Rent: Find active rent for cloth
+        Rent-->>OrderController: rent
+        OrderController->>Cloth: Update status<br/>(default to 'repairing' if ready_for_rent)
+        OrderController->>Rent: Update status = 'completed'
+        OrderController->>OrderHistoryService: logItemReturned(order, cloth_id, status)
+    end
+    OrderController->>OrderController: checkOrderCanBeFinished(order)
+    alt Can be finished
+        OrderController->>Order: Update status = 'finished'
+        OrderController->>OrderHistoryService: logStatusChanged(order, old, 'finished')
+        OrderController->>OrderHistoryService: logFinished(order)
+    end
+    OrderController-->>API: Order and returned_items
+    API-->>Client: JSON response
+
+    Note over Client,OrderHistoryService: Finish Order
+    Client->>API: POST /api/v1/orders/{id}/finish
+    API->>OrderController: finish(id)
+    OrderController->>Order: findOrFail(id)
+    OrderController->>Order: Load custodies, payments
+    OrderController->>OrderController: validateStatusTransition(order, 'finished')
+    OrderController->>OrderController: Validate:<br/>- All custody has decisions<br/>- Returned custody has proof<br/>- No pending payments<br/>- Non-fee payments = total_price
+    alt Validation fails
+        OrderController-->>API: 422 Error
+        API-->>Client: Validation errors
+    else Validation passes
+        OrderController->>Order: Update status = 'finished'
+        OrderController->>OrderHistoryService: logStatusChanged(order, old, 'finished')
+        OrderController->>OrderHistoryService: logFinished(order)
+        OrderController-->>API: Order
+        API-->>Client: JSON response
+    end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

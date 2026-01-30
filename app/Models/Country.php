@@ -2,30 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\LogsActivity;
 
 class Country extends Model
 {
-    protected $table = 'countries';
-    protected $fillable = [
-        'name',
-        'code',
-        'currency_name',
-        'currency_symbol',
-        'image',
-        'description',
-        'active',
-    ];
+    use HasFactory, SoftDeletes, LogsActivity;
 
-
-    public function getImageUrlAttribute()
-    {
-        return $this->image ? asset('storage/' . $this->image) : null;
-    }
+    protected $fillable = ['name'];
 
     public function cities()
     {
-        return $this->hasMany(City::class, 'country_id', 'id');
+        return $this->hasMany(City::class);
     }
 }

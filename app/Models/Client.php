@@ -4,54 +4,97 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\LogsActivity;
 
 class Client extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $fillable = [
-        'uuid',
-        'name',
-        'phone_primary',
-        'phone_secondary',
-        'address',
-        'visit_date',
-        'event_date',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'date_of_birth',
+        'national_id',
+        'address_id',
         'source',
-        'notes',
+        // Body measurements
+        'breast_size',
+        'waist_size',
+        'sleeve_size',
+        'hip_size',
+        'shoulder_size',
+        'length_size',
+        'measurement_notes',
+        'last_measurement_date',
     ];
 
-    protected static function boot()
-    {
-        parent::boot();
+    protected $casts = [
+        'date_of_birth' => 'date',
+        'last_measurement_date' => 'date',
+    ];
 
-        static::creating(function ($model) {
-            if (empty($model->uuid)) {
-                $model->uuid = (string) Str::uuid();
-            }
-        });
+    public function phones()
+    {
+        return $this->hasMany(Phone::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function address()
+    {
+        return $this->belongsTo(Address::class);
     }
 
     /**
-     * العلاقات
+     * Check if client has any measurements recorded
      */
-
-    // // كل عميل عنده أكثر من طلب
-    public function orders()
+    public function hasMeasurements(): bool
     {
-        return $this->hasMany(Order::class, 'client_id', 'id');
+        return $this->breast_size || $this->waist_size || $this->sleeve_size ||
+               $this->hip_size || $this->shoulder_size || $this->length_size;
     }
 
-    // /**
-    //  * سكوب بسيط للبحث عن عميل بالاسم أو الهاتف
-    //  */
-    // public function scopeSearch($query, $term)
-    // {
-    //     return $query->where(function ($q) use ($term) {
-    //         $q->where('name', 'like', "%{$term}%")
-    //             ->orWhere('phone_primary', 'like', "%{$term}%")
-    //             ->orWhere('phone_secondary', 'like', "%{$term}%");
-    //     });
-    // }
+    /**
+     * Get all measurements as an array
+     */
+    public function getMeasurements(): array
+    {
+        return [
+            'breast_size' => $this->breast_size,
+            'waist_size' => $this->waist_size,
+            'sleeve_size' => $this->sleeve_size,
+            'hip_size' => $this->hip_size,
+            'shoulder_size' => $this->shoulder_size,
+            'length_size' => $this->length_size,
+            'measurement_notes' => $this->measurement_notes,
+            'last_measurement_date' => $this->last_measurement_date?->format('Y-m-d'),
+        ];
+    }
+
+    /**
+     * Update measurements and set the last measurement date
+     */
+    public function updateMeasurements(array $measurements): bool
+    {
+        $measurementFields = ['breast_size', 'waist_size', 'sleeve_size', 'hip_size', 'shoulder_size', 'length_size', 'measurement_notes'];
+        
+        $hasChanges = false;
+        foreach ($measurementFields as $field) {
+            if (array_key_exists($field, $measurements)) {
+                $this->$field = $measurements[$field];
+                $hasChanges = true;
+            }
+        }
+
+        if ($hasChanges) {
+            $this->last_measurement_date = now();
+        }
+
+        return $this->save();
+    }
 }

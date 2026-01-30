@@ -1,0 +1,60 @@
+flowchart TD
+    Start([User Starts Creating Order]) --> SelectClient[Select Client]
+    SelectClient --> SelectEntity[Select Entity<br/>branch/workshop/factory]
+    SelectEntity --> AddItems[Add Items]
+    
+    AddItems --> ItemForm[For Each Item:<br/>- Select cloth_id<br/>- Enter price<br/>- Select type<br/>- Add notes optional<br/>- Add discount optional]
+    
+    ItemForm --> CheckRent{Type equals rent?}
+    CheckRent -->|Yes| AddRentFields[Add:<br/>- days_of_rent<br/>- occasion_datetime]
+    CheckRent -->|No| AddOrderDiscount
+    AddRentFields --> AddOrderDiscount
+    
+    AddOrderDiscount[Add Order-Level Discount<br/>Optional]
+    AddOrderDiscount --> AddNotes[Add Order Notes<br/>Optional]
+    AddNotes --> AddInitialPayment[Add Initial Payment<br/>Optional]
+    
+    AddInitialPayment --> CalculateTotal[Calculate Total Price<br/>Item discounts then Order discount]
+    CalculateTotal --> Preview[Show Preview:<br/>- Subtotal<br/>- Discounts<br/>- Total<br/>- Remaining]
+    
+    Preview --> Submit{User Submits?}
+    Submit -->|No| AddItems
+    Submit -->|Yes| POST[POST /api/v1/orders]
+    
+    POST --> Validate{Validation OK?}
+    Validate -->|No| ShowErrors[Show Validation Errors]
+    ShowErrors --> AddItems
+    
+    Validate -->|Yes| CreateOrder[Create Order]
+    CreateOrder --> CheckPaid{paid greater than 0?}
+    CheckPaid -->|Yes| CreatePayment[Auto-create Payment<br/>type: initial]
+    CheckPaid -->|No| Success
+    CreatePayment --> Success([Order Created Successfully])
+    
+    Success --> ShowOrder[Display Order Details]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

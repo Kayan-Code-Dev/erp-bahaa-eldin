@@ -1,0 +1,76 @@
+flowchart TD
+    Start([New Order]) --> Create[Create Order<br/>Status: created]
+    Create --> AddItems[Add Items with Prices]
+    AddItems --> Calculate[Calculate Total Price<br/>Apply Discounts]
+    Calculate --> AddInitialPayment{Add Initial<br/>Payment?}
+    
+    AddInitialPayment -->|Yes| CreateInitialPayment[Create Payment<br/>type: initial]
+    AddInitialPayment -->|No| CheckStatus1
+    CreateInitialPayment --> CheckStatus1{Payment<br/>Status?}
+    
+    CheckStatus1 -->|paid equals total| SetPaid[Status: paid]
+    CheckStatus1 -->|paid less than total| SetPartiallyPaid[Status: partially_paid]
+    CheckStatus1 -->|paid equals 0| KeepCreated[Status: created]
+    
+    SetPaid --> AddCustody[Add Custody Records<br/>Status: pending]
+    SetPartiallyPaid --> AddCustody
+    KeepCreated --> AddCustody
+    
+    AddCustody --> AddMorePayments{Add More<br/>Payments?}
+    AddMorePayments -->|Yes| AddPayment[POST /add-payment<br/>type: normal/fee]
+    AddPayment --> UpdatePaid[Update paid/remaining]
+    UpdatePaid --> AddMorePayments
+    
+    AddMorePayments -->|No| MarkDelivered[Mark as Delivered<br/>Requires: Custody]
+    MarkDelivered --> ValidateDelivered{Validation<br/>OK?}
+    
+    ValidateDelivered -->|No| ShowDeliveredError[Show Error]
+    ShowDeliveredError --> AddCustody
+    
+    ValidateDelivered -->|Yes| SetDelivered[Status: delivered]
+    SetDelivered --> DecideCustody[Decide Custody:<br/>Return or Keep]
+    
+    DecideCustody --> ReturnCustody{Return<br/>Custody?}
+    ReturnCustody -->|Yes| UploadProof[Upload Return Proof]
+    ReturnCustody -->|No| MarkForfeited[Mark as Forfeited]
+    
+    UploadProof --> CheckPayments{All Payments<br/>Paid?}
+    MarkForfeited --> CheckPayments
+    
+    CheckPayments -->|No| CompletePayments[Complete Pending Payments]
+    CompletePayments --> CheckPayments
+    
+    CheckPayments -->|Yes| ValidateFinished[Validate Finished Status]
+    ValidateFinished --> AllValid{All Validations<br/>OK?}
+    
+    AllValid -->|No| ShowFinishedError[Show Error]
+    ShowFinishedError --> DecideCustody
+    
+    AllValid -->|Yes| SetFinished[Status: finished]
+    SetFinished --> End([Order Completed])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

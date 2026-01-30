@@ -1,0 +1,59 @@
+sequenceDiagram
+    participant Client
+    participant API
+    participant ClothController
+    participant Cloth
+    participant Rent
+    participant Response
+
+    Note over Client,Response: Scenario 1: Get unavailable days for a cloth
+    Client->>API: GET /api/v1/clothes/{id}/unavailable-days
+    API->>ClothController: unavailableDays(id)
+    ClothController->>Cloth: findOrFail(id)
+    ClothController->>Rent: where('cloth_id', id)<br/>where('status', '!=', 'canceled')
+    Rent-->>ClothController: rents[]
+    ClothController->>ClothController: Calculate unavailable ranges<br/>(delivery_date - 2 days)<br/>to (return_date + 2 days)
+    ClothController-->>Response: unavailable_ranges,<br/>unavailable_dates,<br/>available_from
+    Response-->>Client: JSON response
+
+    Note over Client,Response: Scenario 2: Get available clothes for a date
+    Client->>API: GET /api/v1/clothes/available-for-date<br/>?delivery_date=2025-01-15&days_of_rent=3
+    API->>ClothController: availableForDate(request)
+    ClothController->>Cloth: Get all clothes<br/>(optionally filtered by inventory)
+    Cloth-->>ClothController: clothes[]
+    loop For each cloth
+        ClothController->>ClothController: checkClothAvailability(cloth_id,<br/>delivery_date, days_of_rent)
+        ClothController->>Rent: Get all rents for cloth<br/>(excluding canceled)
+        Rent-->>ClothController: rents[]
+        ClothController->>ClothController: Check if new period overlaps<br/>with unavailable periods<br/>(2-day buffer)
+        ClothController->>Cloth: Check status != 'repairing'
+        alt Available
+            ClothController->>ClothController: Add to available_clothes[]
+        end
+    end
+    ClothController-->>Response: available_clothes[],<br/>total_available
+    Response-->>Client: JSON response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

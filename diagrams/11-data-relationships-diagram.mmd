@@ -1,0 +1,95 @@
+erDiagram
+    ORDER ||--o{ ORDER_ITEM : has_many
+    ORDER ||--o{ PAYMENT : has_many
+    ORDER ||--o{ CUSTODY : has_many
+    ORDER }o--|| CLIENT : belongs_to
+    ORDER }o--|| INVENTORY : belongs_to
+    
+    ORDER_ITEM }o--|| CLOTH : references
+    
+    CUSTODY ||--o{ CUSTODY_PHOTO : has_many
+    CUSTODY ||--o{ CUSTODY_RETURN : has_many
+    
+    PAYMENT }o--|| USER : created_by
+    
+    ORDER {
+        int id PK
+        int client_id FK
+        int inventory_id FK
+        decimal total_price
+        string status
+        decimal paid
+        decimal remaining
+        text order_notes
+        string discount_type
+        decimal discount_value
+    }
+    
+    ORDER_ITEM {
+        int order_id FK
+        int cloth_id FK
+        decimal price
+        string type
+        int days_of_rent
+        datetime occasion_datetime
+        string status
+        text notes
+        string discount_type
+        decimal discount_value
+    }
+    
+    PAYMENT {
+        int id PK
+        int order_id FK
+        decimal amount
+        string status
+        string payment_type
+        datetime payment_date
+        text notes
+    }
+    
+    CUSTODY {
+        int id PK
+        int order_id FK
+        string type
+        text description
+        decimal value
+        string status
+        datetime returned_at
+        string return_proof_photo
+    }
+    
+    CUSTODY_RETURN {
+        int id PK
+        int custody_id FK
+        datetime returned_at
+        string return_proof_photo
+        string customer_name
+        string customer_phone
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

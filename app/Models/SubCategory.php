@@ -4,42 +4,29 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\LogsActivity;
 
-class SubCategory extends Model
+class Subcategory extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes, LogsActivity;
 
-    protected $fillable = [
-        'category_id',
-        'name',
-        'description',
-        'active',
-    ];
-
+    protected $fillable = ['category_id', 'name', 'description'];
 
     public function category()
     {
-        return $this->belongsTo(Category::class, 'category_id', 'id');
+        return $this->belongsTo(Category::class);
     }
 
-
-    public function inventories()
+    public function clothes()
     {
-        return $this->hasMany(Inventory::class, 'subCategories_id', 'id');
+        return $this->belongsToMany(Cloth::class, 'cloth_subcategory')
+                    ->withTimestamps();
     }
 
-    public function inventoryTransfer()
+    public function categories()
     {
-        return $this->hasMany(InventoryTransfer::class, 'subCategories_id', 'id');
-    }
-
-    public function rentOrders()
-    {
-        return $this->hasMany(RentOrder::class, 'sub_category_id', 'id');
-    }
-
-    public function purchaseOrder()
-    {
-        return $this->hasMany(PurchaseOrder::class, 'sub_category_id', 'id');
+        return $this->belongsToMany(Category::class, 'category_subcategory')
+                    ->withTimestamps();
     }
 }

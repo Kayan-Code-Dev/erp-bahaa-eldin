@@ -1,0 +1,16 @@
+[20-Dec-2025 22:32:07 UTC] PHP Fatal error:  Cannot declare class App\Models\Branch, because the name is already in use in /home/kayabrpq/public_html/app/Models/Branch.php on line 9
+[20-Dec-2025 22:35:24 UTC] PHP Fatal error:  Cannot declare class App\Models\Branch, because the name is already in use in /home/kayabrpq/public_html/app/Models/Branch.php on line 9
+[20-Dec-2025 22:40:49 UTC] PHP Fatal error:  Cannot declare class App\Models\Branch, because the name is already in use in /home/kayabrpq/public_html/app/Models/Branch.php on line 9
+[20-Dec-2025 22:43:52 UTC] PHP Fatal error:  Cannot declare class App\Models\Workshop, because the name is already in use in /home/kayabrpq/public_html/app/Models/Workshop.php on line 9
+[21-Dec-2025 11:31:31 UTC] PHP Fatal error:  Cannot declare class App\Models\Branch, because the name is already in use in /home/kayabrpq/public_html/app/Models/Branch.php on line 9
+[21-Dec-2025 11:31:57 UTC] PHP Fatal error:  Cannot declare class App\Models\Branch, because the name is already in use in /home/kayabrpq/public_html/app/Models/Branch.php on line 9
+[13-Jan-2026 23:34:41 UTC] PHP Warning:  require(/home/kayabrpq/public_html/vendor/autoload.php): Failed to open stream: No such file or directory in /home/kayabrpq/public_html/artisan on line 10
+[13-Jan-2026 23:34:41 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/kayabrpq/public_html/vendor/autoload.php' (include_path='.:/opt/alt/php83/usr/share/pear:/opt/alt/php83/usr/share/php:/usr/share/pear:/usr/share/php') in /home/kayabrpq/public_html/artisan:10
+Stack trace:
+#0 {main}
+  thrown in /home/kayabrpq/public_html/artisan on line 10
+[13-Jan-2026 23:34:44 UTC] PHP Warning:  require(/home/kayabrpq/public_html/vendor/autoload.php): Failed to open stream: No such file or directory in /home/kayabrpq/public_html/artisan on line 10
+[13-Jan-2026 23:34:44 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/kayabrpq/public_html/vendor/autoload.php' (include_path='.:/opt/alt/php83/usr/share/pear:/opt/alt/php83/usr/share/php:/usr/share/pear:/usr/share/php') in /home/kayabrpq/public_html/artisan:10
+Stack trace:
+#0 {main}
+  thrown in /home/kayabrpq/public_html/artisan on line 10

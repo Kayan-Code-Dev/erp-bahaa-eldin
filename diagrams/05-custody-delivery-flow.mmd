@@ -1,0 +1,82 @@
+sequenceDiagram
+    participant Client
+    participant API
+    participant OrderController
+    participant Order
+    participant Custody
+    participant CustodyPhoto
+    participant OrderHistoryService
+    participant Rent
+    participant Cloth
+
+    Note over Client,Cloth: Add Custody
+    Client->>API: POST /api/v1/orders/{id}/custody<br/>{type, description, value/photos}
+    API->>OrderController: addCustody(request, id)
+    OrderController->>Order: findOrFail(id)
+    OrderController->>OrderController: Validate order status<br/>(created, partially_paid, paid)
+    OrderController->>Custody: create({order_id, type, description,<br/>value, status: 'pending'})
+    Custody-->>OrderController: custody
+    alt Physical item
+        loop For each photo
+            OrderController->>CustodyPhoto: create({custody_id, photo_path})
+        end
+    end
+    OrderController-->>API: Custody
+    API-->>Client: JSON response
+
+    Note over Client,Cloth: Deliver Order
+    Client->>API: POST /api/v1/orders/{id}/deliver
+    API->>OrderController: deliver(id)
+    OrderController->>Order: findOrFail(id)
+    OrderController->>Order: Load custodies
+    OrderController->>OrderController: Validate: has custody<br/>and all pending
+    OrderController->>Order: Update status = 'delivered'
+    OrderController->>OrderHistoryService: logStatusChanged(order, old, 'delivered')
+    OrderController->>OrderHistoryService: logDelivered(order)
+    loop For each item
+        alt Rent item
+            OrderController->>Order: items()->updateExistingPivot(id, {status: 'rented'})
+            OrderController->>Rent: create({cloth_id, order_id,<br/>delivery_date, return_date, status: 'active'})
+            OrderController->>Cloth: Update status = 'rented'
+        else Non-rent item
+            OrderController->>Order: items()->updateExistingPivot(id, {status: 'delivered'})
+        end
+    end
+    OrderController-->>API: Order
+    API-->>Client: JSON response
+
+    Note over Client,Cloth: Update Custody Status
+    Client->>API: PUT /api/v1/custody/{id}<br/>{status: 'returned'/'forfeited',<br/>return_proof_photo}
+    API->>OrderController: updateCustody(request, id)
+    OrderController->>Custody: findOrFail(id)
+    OrderController->>OrderController: Validate return_proof_photo<br/>if status = 'returned'
+    OrderController->>Custody: Update status, return_proof_photo, returned_at
+    alt Status = 'returned'
+        OrderController->>CustodyReturn: create({custody_id, return_proof_photo,<br/>returned_at, returned_by})
+    end
+    OrderController-->>API: Custody
+    API-->>Client: JSON response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

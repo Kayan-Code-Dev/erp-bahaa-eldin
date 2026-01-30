@@ -1,0 +1,49 @@
+flowchart TD
+    Start([Order with Payments]) --> LoadPayments[Load All Payments]
+    LoadPayments --> FilterPaid[Filter: status equals paid]
+    FilterPaid --> SumPaid[Sum All Paid Payments<br/>total_paid]
+    
+    SumPaid --> FilterFees[Filter: payment_type equals fee<br/>AND status equals paid]
+    FilterFees --> SumFees[Sum Fee Payments<br/>total_fees]
+    
+    SumFees --> CalculateRequired[Required Amount equals<br/>total_price plus total_fees]
+    CalculateRequired --> CalculateRemaining[Remaining equals<br/>required minus total_paid<br/>minimum: 0]
+    
+    CalculateRemaining --> UpdateOrder[Update Order:<br/>paid equals total_paid<br/>remaining equals remaining]
+    
+    UpdateOrder --> CheckFull{total_paid greater or equal<br/>required?}
+    CheckFull -->|Yes| SetPaidStatus[Set status equals paid<br/>remaining equals 0]
+    CheckFull -->|No| CheckPartial{total_paid greater than 0?}
+    
+    CheckPartial -->|Yes| SetPartiallyPaid[Set status equals partially_paid]
+    CheckPartial -->|No| KeepStatus[Keep Current Status]
+    
+    SetPaidStatus --> End([Order Updated])
+    SetPartiallyPaid --> End
+    KeepStatus --> End
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

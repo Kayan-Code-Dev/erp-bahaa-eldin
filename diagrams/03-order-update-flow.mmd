@@ -1,0 +1,78 @@
+sequenceDiagram
+    participant Client
+    participant API
+    participant OrderController
+    participant Order
+    participant OrderHistoryService
+    participant Cloth
+    participant ClothOrder
+
+    Client->>API: PUT /api/v1/orders/{id}<br/>{items, discount_type, etc.}
+    API->>OrderController: update(request, id)
+    OrderController->>Order: findOrFail(id)
+    Order-->>OrderController: order
+    OrderController->>OrderController: Store old order data
+    
+    alt Items changed
+        OrderController->>OrderController: Calculate new total_price<br/>(item discounts → order discount)
+        OrderController->>Order: Get old items
+        Order-->>OrderController: oldItems[]
+        OrderController->>OrderController: Compare old vs new items
+        loop For removed items
+            OrderController->>OrderHistoryService: logItemRemoved(order, cloth_id)
+            OrderController->>Cloth: Update status to ready_for_rent
+        end
+        loop For new items
+            OrderController->>Cloth: Validate exists and in inventory
+            OrderController->>OrderController: checkRentalAvailability()
+            OrderController->>Order: items()->attach() or sync()
+            OrderController->>OrderHistoryService: logItemAdded(order, cloth_id)
+        end
+        loop For updated items
+            OrderController->>OrderHistoryService: logItemUpdated(order, cloth_id, field)
+        end
+    end
+    
+    alt Discount changed
+        OrderController->>OrderController: Recalculate total_price
+        OrderController->>OrderHistoryService: logUpdated(order, 'total_price', old, new)
+    end
+    
+    OrderController->>Order: update(updateData)
+    OrderController->>OrderController: recalculateOrderPayments(order)
+    OrderController->>Order: Check if status changed
+    alt Status changed
+        OrderController->>OrderHistoryService: logStatusChanged(order, old, new)
+        OrderController->>OrderController: syncItemStatuses(order)
+        loop For each item (except rented)
+            OrderController->>ClothOrder: Update pivot status = order.status
+        end
+    end
+    
+    OrderController->>OrderHistoryService: logUpdated() for field changes
+    OrderController-->>API: Updated order
+    API-->>Client: JSON response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

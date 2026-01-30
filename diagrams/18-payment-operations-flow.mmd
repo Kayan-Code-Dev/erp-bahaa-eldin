@@ -1,0 +1,131 @@
+sequenceDiagram
+    participant Client as Client/Frontend
+    participant API as OrderController
+    participant PaymentModel as Payment Model
+    participant OrderModel as Order Model
+    participant DB as Database
+
+    Note over Client,DB: Operation 1: Add Payment
+    
+    Client->>API: POST /api/v1/orders/{id}/add-payment<br/>{amount, payment_type, status, notes?}
+    activate API
+    
+    API->>OrderModel: Order::findOrFail(id)
+    OrderModel->>DB: SELECT * FROM orders WHERE id=?
+    DB-->>OrderModel: Order data
+    OrderModel-->>API: Order object
+    
+    API->>API: Validate request data
+    
+    API->>PaymentModel: Payment::create({order_id, amount, type, status, ...})
+    activate PaymentModel
+    PaymentModel->>DB: INSERT INTO order_payments
+    DB-->>PaymentModel: Payment ID
+    PaymentModel-->>API: Payment object
+    deactivate PaymentModel
+    
+    API->>API: recalculateOrderPayments(order)
+    activate API
+    API->>OrderModel: order->refresh()
+    OrderModel->>DB: SELECT * FROM orders WHERE id=?
+    DB-->>OrderModel: Fresh order data
+    
+    API->>PaymentModel: Query paid non-fee payments
+    PaymentModel->>DB: SELECT SUM(amount) FROM order_payments<br/>WHERE order_id=? AND status='paid' AND type!='fee'
+    DB-->>PaymentModel: Total paid
+    PaymentModel-->>API: totalPaid
+    
+    API->>OrderModel: Update order<br/>- paid = totalPaid<br/>- remaining = max(0, total_price - totalPaid)
+    
+    alt totalPaid >= total_price
+        API->>OrderModel: status = 'paid', remaining = 0
+    else totalPaid > 0
+        API->>OrderModel: status = 'partially_paid'
+    else
+        API->>OrderModel: status = 'created'
+    end
+    
+    OrderModel->>DB: UPDATE orders SET paid, remaining, status
+    DB-->>OrderModel: Updated
+    deactivate API
+    
+    API->>OrderModel: Load relationships
+    OrderModel->>DB: Eager load
+    DB-->>OrderModel: Complete data
+    OrderModel-->>API: Order with payments
+    
+    API-->>Client: 200 OK<br/>{order: {...}, payment: {...}}
+    deactivate API
+    
+    Note over Client,DB: Operation 2: Pay Pending Payment
+    
+    Client->>API: POST /api/v1/orders/{orderId}/payments/{paymentId}/pay
+    activate API
+    
+    API->>OrderModel: Order::findOrFail(orderId)
+    API->>PaymentModel: Payment::findOrFail(paymentId)
+    
+    alt Payment already paid
+        API-->>Client: 422 Error: "Payment already paid"
+        deactivate API
+    else Payment is canceled
+        API-->>Client: 422 Error: "Cannot pay canceled payment"
+        deactivate API
+    else Payment is pending
+        API->>PaymentModel: Update status to 'paid'
+        PaymentModel->>DB: UPDATE order_payments SET status='paid'
+        DB-->>PaymentModel: Updated
+        
+        API->>API: recalculateOrderPayments(order)
+        Note over API: Same recalculation flow as above
+        
+        API-->>Client: 200 OK<br/>{order: {...}, payment: {...}}
+    end
+    deactivate API
+    
+    Note over Client,DB: Operation 3: Cancel Payment
+    
+    Client->>API: POST /api/v1/orders/{orderId}/payments/{paymentId}/cancel<br/>{notes?}
+    activate API
+    
+    API->>OrderModel: Order::findOrFail(orderId)
+    API->>PaymentModel: Payment::findOrFail(paymentId)
+    
+    alt Payment already canceled
+        API-->>Client: 422 Error: "Payment already canceled"
+        deactivate API
+    else Payment exists
+        API->>PaymentModel: Update status to 'canceled'
+        PaymentModel->>DB: UPDATE order_payments SET status='canceled'
+        DB-->>PaymentModel: Updated
+        
+        API->>API: recalculateOrderPayments(order)
+        Note over API: Recalculation excludes canceled payments
+        
+        API-->>Client: 200 OK<br/>{order: {...}, payment: {...}}
+    end
+    deactivate API
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

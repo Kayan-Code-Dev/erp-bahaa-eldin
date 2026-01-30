@@ -1,0 +1,58 @@
+flowchart TD
+    Start([Order Created]) --> AddCustodyDecision{Add Custody?}
+    
+    AddCustodyDecision -->|Yes| CustodyForm[Custody Form:<br/>- Type: money/item/document<br/>- Description<br/>- Value for money<br/>- Photos upload]
+    
+    CustodyForm --> CreateCustody[Create Custody<br/>Status: pending]
+    CreateCustody --> AddMoreCustody{Add More<br/>Custody?}
+    AddMoreCustody -->|Yes| CustodyForm
+    AddMoreCustody -->|No| ReadyForDelivered[Ready for Delivered Status]
+    
+    AddCustodyDecision -->|No| CannotDeliver[Cannot Mark as Delivered]
+    
+    ReadyForDelivered --> MarkDelivered[Mark Order as Delivered]
+    MarkDelivered --> FinishOrder{Finish Order?}
+    
+    FinishOrder -->|No| Wait[Wait for Action]
+    FinishOrder -->|Yes| CustodyDecision[For Each Custody:<br/>Make Decision]
+    
+    CustodyDecision --> DecisionType{Decision Type?}
+    
+    DecisionType -->|Return| UploadProof[Upload Return Proof Document]
+    UploadProof --> CreateReturnRecord[Create CustodyReturn Record]
+    CreateReturnRecord --> UpdateCustodyReturned[Update Custody:<br/>status equals returned]
+    
+    DecisionType -->|Keep| MarkForfeited[Mark Custody as Forfeited<br/>status equals forfeited]
+    
+    UpdateCustodyReturned --> CheckAllDecided{All Custody<br/>Decided?}
+    MarkForfeited --> CheckAllDecided
+    
+    CheckAllDecided -->|No| CustodyDecision
+    CheckAllDecided -->|Yes| ValidateFinish[Validate Finish Requirements]
+    ValidateFinish --> FinishOrder[Finish Order]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

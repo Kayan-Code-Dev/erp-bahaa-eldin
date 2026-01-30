@@ -1,0 +1,115 @@
+sequenceDiagram
+    participant Client as Client/Frontend
+    participant API as OrderController
+    participant OrderModel as Order Model
+    participant PaymentModel as Payment Model
+    participant ClothModel as Cloth Model
+    participant InventoryModel as Inventory Model
+    participant DB as Database
+
+    Client->>API: POST /api/v1/orders<br/>{client_id, entity_type, entity_id, items, paid?}
+    activate API
+    
+    API->>API: Validate request data
+    
+    loop For each item
+        API->>InventoryModel: findInventoryByEntity(entity_type, entity_id)
+        InventoryModel->>DB: Query inventory
+        DB-->>InventoryModel: Inventory data
+        InventoryModel-->>API: Inventory object
+        
+        API->>ClothModel: Check cloth in inventory
+        ClothModel->>DB: Verify cloth exists in inventory
+        DB-->>ClothModel: Cloth found/not found
+        ClothModel-->>API: Validation result
+        
+        alt Cloth not in inventory
+            API-->>Client: 422 Error: "Cloth not in inventory"
+            deactivate API
+        end
+    end
+    
+    API->>OrderModel: Create order record
+    activate OrderModel
+    OrderModel->>DB: INSERT INTO orders
+    DB-->>OrderModel: Order ID
+    OrderModel-->>API: Order object
+    deactivate OrderModel
+    
+    loop For each item
+        API->>OrderModel: Attach cloth (pivot table)
+        OrderModel->>DB: INSERT INTO cloth_order
+        DB-->>OrderModel: Pivot created
+    end
+    
+    API->>OrderModel: Calculate total price<br/>(with discounts)
+    OrderModel->>OrderModel: calculateTotalPrice()<br/>- Apply item discounts<br/>- Apply order discount
+    OrderModel->>DB: UPDATE orders SET total_price
+    DB-->>OrderModel: Updated
+    
+    opt If paid > 0 (initial payment)
+        API->>PaymentModel: Create payment record
+        activate PaymentModel
+        PaymentModel->>DB: INSERT INTO order_payments<br/>{order_id, amount, status: 'paid', type: 'initial'}
+        DB-->>PaymentModel: Payment ID
+        PaymentModel-->>API: Payment object
+        deactivate PaymentModel
+        
+        API->>API: recalculateOrderPayments(order)
+        activate API
+        API->>OrderModel: order->refresh()
+        OrderModel->>DB: SELECT * FROM orders
+        DB-->>OrderModel: Fresh order data
+        
+        API->>PaymentModel: Query paid payments<br/>(exclude fees)
+        PaymentModel->>DB: SELECT SUM(amount) WHERE status='paid' AND type!='fee'
+        DB-->>PaymentModel: Total paid amount
+        PaymentModel-->>API: totalPaid
+        
+        API->>OrderModel: Update order<br/>- paid = totalPaid<br/>- remaining = max(0, total_price - totalPaid)
+        
+        alt paid >= total_price
+            API->>OrderModel: status = 'paid', remaining = 0
+        else paid > 0
+            API->>OrderModel: status = 'partially_paid'
+        else
+            API->>OrderModel: status = 'created'
+        end
+        
+        OrderModel->>DB: UPDATE orders SET paid, remaining, status
+        DB-->>OrderModel: Updated
+        deactivate API
+    end
+    
+    API->>OrderModel: Load relationships<br/>(client, inventory, items, payments)
+    OrderModel->>DB: Eager load relationships
+    DB-->>OrderModel: Related data
+    OrderModel-->>API: Order with relationships
+    
+    API->>API: Transform response<br/>(flatten items, addresses)
+    API-->>Client: 201 Created<br/>{order data}
+    deactivate API
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

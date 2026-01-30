@@ -1,0 +1,55 @@
+flowchart TD
+    Start([API Request]) --> SendRequest[Send HTTP Request]
+    SendRequest --> ReceiveResponse[Receive Response]
+    
+    ReceiveResponse --> CheckStatus{Response<br/>Status?}
+    
+    CheckStatus -->|200/201| Success[Success Response]
+    CheckStatus -->|422| ValidationError[Validation Error]
+    CheckStatus -->|404| NotFound[Not Found Error]
+    CheckStatus -->|500| ServerError[Server Error]
+    
+    ValidationError --> ParseErrors[Parse errors Object]
+    ParseErrors --> CheckFieldErrors{Field-Specific<br/>Errors?}
+    
+    CheckFieldErrors -->|Yes| ShowFieldErrors[Show Field-Level Errors:<br/>- Highlight invalid fields<br/>- Show error messages<br/>- Prevent submission]
+    CheckFieldErrors -->|No| CheckStatusErrors{Status<br/>Transition Errors?}
+    
+    CheckStatusErrors -->|Yes| ShowStatusErrors[Show Status Errors:<br/>- Display validation messages<br/>- Show checklist<br/>- Guide user to fix]
+    CheckStatusErrors -->|No| ShowGeneralError[Show General Error Message]
+    
+    NotFound --> ShowNotFound[Show: Order not found<br/>Redirect to list]
+    ServerError --> ShowServerError[Show: Server error<br/>Try again later]
+    
+    ShowFieldErrors --> End1([User Fixes Errors])
+    ShowStatusErrors --> End2([User Completes Requirements])
+    ShowGeneralError --> End3([User Reviews Error])
+    ShowNotFound --> End4([Navigate Away])
+    ShowServerError --> End5([Retry or Contact Support])
+    Success --> End6([Continue Flow])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

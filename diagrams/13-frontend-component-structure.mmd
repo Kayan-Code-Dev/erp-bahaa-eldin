@@ -1,0 +1,62 @@
+flowchart TD
+    App[Application Root] --> OrderList[OrderList Component]
+    App --> OrderDetail[OrderDetail Component]
+    App --> OrderForm[OrderForm Component]
+    
+    OrderList --> OrderCard[OrderCard Component]
+    OrderCard --> StatusBadge[StatusBadge Component]
+    
+    OrderDetail --> OrderInfo[OrderInfo Section]
+    OrderDetail --> ItemsList[ItemsList Component]
+    OrderDetail --> PaymentsList[PaymentsList Component]
+    OrderDetail --> CustodyList[CustodyList Component]
+    OrderDetail --> ActionButtons[ActionButtons Component]
+    
+    OrderForm --> ClientSelector[ClientSelector]
+    OrderForm --> EntitySelector[EntitySelector]
+    OrderForm --> ItemsForm[ItemsForm Component]
+    OrderForm --> DiscountForm[DiscountForm Component]
+    OrderForm --> PaymentForm[PaymentForm Component]
+    OrderForm --> OrderSummary[OrderSummary Component]
+    
+    ItemsForm --> ItemRow[ItemRow Component]
+    ItemRow --> ClothSelector[ClothSelector]
+    ItemRow --> DiscountInput[DiscountInput]
+    ItemRow --> RentFields[RentFields Component]
+    
+    PaymentsList --> PaymentCard[PaymentCard Component]
+    PaymentsList --> AddPaymentBtn[AddPaymentButton]
+    AddPaymentBtn --> PaymentModal[PaymentModal Component]
+    
+    CustodyList --> CustodyCard[CustodyCard Component]
+    CustodyList --> AddCustodyBtn[AddCustodyButton]
+    CustodyList --> CustodyDecision[CustodyDecision Component]
+    
+    ActionButtons --> StatusTransition[StatusTransition Component]
+    StatusTransition --> ValidationChecklist[ValidationChecklist Component]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
