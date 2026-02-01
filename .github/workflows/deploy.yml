@@ -1,0 +1,65 @@
+# CI/CD Pipeline for ERP Bahaa Eldin
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, json, bcmath, curl, zip, pdo, mysql
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /var/www/erp-bahaa-eldin
+
+            # Force update to match GitHub
+            git fetch origin
+            git reset --hard origin/main
+
+            # Install Composer dependencies
+            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+            # Run Laravel optimizations
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+
+            # Run migrations
+            php artisan migrate --force
+
+            # Restart queue workers
+            php artisan queue:restart
+
+            # Clear and rebuild caches
+            php artisan optimize
+
+            # Fix permissions
+            chown -R nginx:nginx /var/www/erp-bahaa-eldin
+            chmod -R 775 storage bootstrap/cache
+
+            echo "✅ Deployment completed successfully!"
+
