@@ -27,7 +27,18 @@ class SupplierOrder extends Model
     protected $casts = [
         'order_date' => 'date',
         'total_amount' => 'decimal:2',
+        'payment_amount' => 'decimal:2',
     ];
+
+    protected $appends = ['remaining_payment'];
+
+    /**
+     * Get remaining payment (total_amount - payment_amount)
+     */
+    public function getRemainingPaymentAttribute(): float
+    {
+        return (float) $this->total_amount - (float) $this->payment_amount;
+    }
 
     // Status constants
     const STATUS_PENDING = 'pending';

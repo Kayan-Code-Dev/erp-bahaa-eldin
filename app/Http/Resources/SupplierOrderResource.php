@@ -47,6 +47,8 @@ class SupplierOrderResource extends JsonResource
             'order_date' => $this->order_date?->format('Y-m-d'),
             'status' => $this->status,
             'total_amount' => $this->total_amount,
+            'payment_amount' => $this->payment_amount,
+            'remaining_payment' => $this->remaining_payment,
             'notes' => $this->notes,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
