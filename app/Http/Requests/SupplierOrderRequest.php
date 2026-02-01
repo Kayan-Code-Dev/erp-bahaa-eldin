@@ -36,8 +36,9 @@ class SupplierOrderRequest extends FormRequest
             ],
             'order_date' => ['required', 'date'],
             'status' => ['sometimes', 'string', Rule::in(array_keys(SupplierOrder::getStatuses()))],
-            'total_amount' => ['sometimes', 'numeric', 'min:0'],
+            'total_amount' => ['nullable', 'numeric', 'min:0'],
             'payment_amount' => ['nullable', 'numeric', 'min:0'],
+            'remaining_payment' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
         ];
 

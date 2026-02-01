@@ -169,11 +169,10 @@ class SupplierOrderService
         }
 
         $createdClothes = [];
-        $totalAmount = 0;
         $supplierOrder = null;
 
-        DB::transaction(function () use ($data, &$createdClothes, &$totalAmount, &$supplierOrder) {
-            // Create supplier order first
+        DB::transaction(function () use ($data, &$createdClothes, &$supplierOrder) {
+            // Create supplier order first (all payment fields from user)
             $supplierOrder = SupplierOrder::create([
                 'supplier_id' => $data['supplier_id'],
                 'category_id' => $data['category_id'] ?? null,
@@ -181,10 +180,11 @@ class SupplierOrderService
                 'branch_id' => $data['branch_id'] ?? null,
                 'order_number' => $data['order_number'],
                 'order_date' => $data['order_date'],
+                'total_amount' => $data['total_amount'] ?? 0,
                 'payment_amount' => $data['payment_amount'] ?? 0,
+                'remaining_payment' => $data['remaining_payment'] ?? 0,
                 'notes' => $data['notes'] ?? null,
                 'status' => SupplierOrder::STATUS_PENDING,
-                'total_amount' => 0,
             ]);
 
             $historyService = new ClothHistoryService();
@@ -217,7 +217,6 @@ class SupplierOrderService
                 }
 
                 $price = $clothData['price'] ?? 0;
-                $totalAmount += $price;
 
                 // Create cloth piece
                 $cloth = Cloth::create([
@@ -265,10 +264,6 @@ class SupplierOrderService
                     'price' => $price,
                 ];
             }
-
-            // Update total amount
-            $supplierOrder->total_amount = $totalAmount;
-            $supplierOrder->save();
         });
 
         /** @var SupplierOrder $supplierOrder */

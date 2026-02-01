@@ -150,7 +150,9 @@ class SupplierController extends Controller
             'branch_id' => 'nullable|exists:branches,id',
             'order_number' => 'nullable|string|max:50',
             'order_date' => 'nullable|date',
+            'total_amount' => 'nullable|numeric|min:0',
             'payment_amount' => 'nullable|numeric|min:0',
+            'remaining_payment' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             // Clothes array - SAME as SupplierOrder store
             'clothes' => 'nullable|array|min:1',
@@ -186,7 +188,9 @@ class SupplierController extends Controller
                     'branch_id' => $data['branch_id'] ?? null,
                     'order_number' => $data['order_number'] ?? null,
                     'order_date' => $data['order_date'] ?? now()->format('Y-m-d'),
+                    'total_amount' => $data['total_amount'] ?? 0,
                     'payment_amount' => $data['payment_amount'] ?? 0,
+                    'remaining_payment' => $data['remaining_payment'] ?? 0,
                     'notes' => $data['notes'] ?? null,
                     'clothes' => $data['clothes'],
                 ];

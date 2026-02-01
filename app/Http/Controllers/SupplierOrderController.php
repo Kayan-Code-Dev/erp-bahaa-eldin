@@ -106,7 +106,9 @@ class SupplierOrderController extends Controller
             'branch_id' => 'nullable|exists:branches,id',
             'order_number' => 'nullable|string|max:50',
             'order_date' => 'required|date',
+            'total_amount' => 'nullable|numeric|min:0',
             'payment_amount' => 'nullable|numeric|min:0',
+            'remaining_payment' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             // Clothes array - SAME validation as ClothController store
             'clothes' => 'required|array|min:1',
