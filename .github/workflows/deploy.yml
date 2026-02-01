@@ -34,6 +34,7 @@ jobs:
 
             # Install Composer dependencies
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+            rm -f config/l5-swagger.php
 
             # Run Laravel optimizations
             php artisan config:clear
@@ -47,8 +48,9 @@ jobs:
             php artisan queue:restart
 
             # Fix permissions
-            chown -R nginx:nginx /var/www/erp-bahaa-eldin
-            chmod -R 775 storage bootstrap/cache
+            chown -R nginx:nginx .
+            chmod -R 777 storage
+            chmod -R 777 bootstrap/cache
 
             echo "✅ Deployment completed successfully!"
 
