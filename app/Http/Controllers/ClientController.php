@@ -18,7 +18,7 @@ class ClientController extends Controller
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="page", in="query", required=false, description="Page number", @OA\Schema(type="integer", default=1)),
      *     @OA\Parameter(name="per_page", in="query", required=false, description="Items per page", @OA\Schema(type="integer", default=15)),
-     *     @OA\Parameter(name="search", in="query", required=false, description="Search in first_name, middle_name, last_name, and national_id", @OA\Schema(type="string")),
+     *     @OA\Parameter(name="search", in="query", required=false, description="Search in name and national_id", @OA\Schema(type="string")),
      *     @OA\Response(
      *         response=200,
      *         description="Successful operation",
@@ -27,43 +27,18 @@ class ClientController extends Controller
      *             @OA\Property(property="data", type="array", @OA\Items(
      *                 type="object",
      *                 @OA\Property(property="id", type="integer", example=1),
-     *                 @OA\Property(property="first_name", type="string", example="Ahmed"),
-     *                 @OA\Property(property="middle_name", type="string", example="Mohamed"),
-     *                 @OA\Property(property="last_name", type="string", example="Ali"),
+     *                 @OA\Property(property="name", type="string", example="Ahmed Mohamed Ali"),
      *                 @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-15"),
      *                 @OA\Property(property="national_id", type="string", example="12345678901234"),
-     *                 @OA\Property(property="source", type="string", nullable=true, example="website (optional)"),
+     *                 @OA\Property(property="source", type="string", nullable=true, example="website"),
      *                 @OA\Property(property="address_id", type="integer", example=1),
      *                 @OA\Property(property="address", type="object", nullable=true,
      *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="street", type="string", example="Tahrir Square"),
-     *                     @OA\Property(property="building", type="string", example="2A"),
-     *                     @OA\Property(property="notes", type="string", nullable=true, example="Notes (optional)"),
+     *                     @OA\Property(property="address", type="string", example="123 Main Street, Building 5A"),
      *                     @OA\Property(property="city_id", type="integer", example=1),
-     *                     @OA\Property(property="city", type="object", nullable=true,
-     *                         @OA\Property(property="id", type="integer", example=1),
-     *                         @OA\Property(property="name", type="string", example="Cairo"),
-     *                         @OA\Property(property="country_id", type="integer", example=1),
-     *                         @OA\Property(property="country", type="object", nullable=true,
-     *                             @OA\Property(property="id", type="integer", example=1),
-     *                             @OA\Property(property="name", type="string", example="Egypt")
-     *                         )
-     *                     )
+     *                     @OA\Property(property="city", type="object", nullable=true)
      *                 ),
-                 *                 @OA\Property(property="phones", type="array", @OA\Items(
-     *                     type="object",
-     *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="phone", type="string", example="01234567890"),
-     *                     @OA\Property(property="type", type="string", nullable=true, enum={"mobile", "landline", "whatsapp"}, example="mobile (optional) (allowed: mobile, landline, whatsapp)", description="Possible values: mobile, landline, whatsapp")
-     *                 )),
-     *                 @OA\Property(property="breast_size", type="string", nullable=true, example="90", description="Client body measurement"),
-     *                 @OA\Property(property="waist_size", type="string", nullable=true, example="70", description="Client body measurement"),
-     *                 @OA\Property(property="sleeve_size", type="string", nullable=true, example="60", description="Client body measurement"),
-     *                 @OA\Property(property="hip_size", type="string", nullable=true, example="95", description="Client body measurement"),
-     *                 @OA\Property(property="shoulder_size", type="string", nullable=true, example="40", description="Client body measurement"),
-     *                 @OA\Property(property="length_size", type="string", nullable=true, example="160", description="Client body measurement"),
-     *                 @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit", description="Notes about measurements"),
-     *                 @OA\Property(property="last_measurement_date", type="string", format="date", nullable=true, example="2025-01-09", description="Date of last measurement"),
+     *                 @OA\Property(property="phones", type="array", @OA\Items(type="object")),
      *                 @OA\Property(property="orders", type="array", @OA\Items(type="object"))
      *             )),
      *             @OA\Property(property="current_page", type="integer", example=1),
@@ -79,13 +54,11 @@ class ClientController extends Controller
         $perPage = (int) $request->query('per_page', 15);
         $query = Client::with(['phones','orders','address.city.country']);
 
-        // Search in first_name, middle_name, last_name, and national_id
+        // Search in name and national_id
         if ($request->has('search') && $request->input('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
-                $q->where('first_name', 'LIKE', '%' . $search . '%')
-                  ->orWhere('middle_name', 'LIKE', '%' . $search . '%')
-                  ->orWhere('last_name', 'LIKE', '%' . $search . '%')
+                $q->where('name', 'LIKE', '%' . $search . '%')
                   ->orWhere('national_id', 'LIKE', '%' . $search . '%');
             });
         }
@@ -107,37 +80,17 @@ class ClientController extends Controller
      *         @OA\JsonContent(
      *             type="object",
      *             @OA\Property(property="id", type="integer", example=1),
-     *             @OA\Property(property="first_name", type="string", example="Ahmed"),
-     *             @OA\Property(property="middle_name", type="string", example="Mohamed"),
-     *             @OA\Property(property="last_name", type="string", example="Ali"),
+     *             @OA\Property(property="name", type="string", example="Ahmed Mohamed Ali"),
      *             @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-15"),
      *             @OA\Property(property="national_id", type="string", example="12345678901234"),
-     *             @OA\Property(property="source", type="string", nullable=true, example="website (optional)"),
+     *             @OA\Property(property="source", type="string", nullable=true, example="website"),
      *             @OA\Property(property="address_id", type="integer", example=1),
      *             @OA\Property(property="address", type="object", nullable=true,
      *                 @OA\Property(property="id", type="integer", example=1),
-     *                 @OA\Property(property="street", type="string", example="Tahrir Square"),
-     *                 @OA\Property(property="building", type="string", example="2A"),
-     *                 @OA\Property(property="notes", type="string", nullable=true, example="Notes (optional)"),
+     *                 @OA\Property(property="address", type="string", example="123 Main Street, Building 5A"),
      *                 @OA\Property(property="city_id", type="integer", example=1),
-     *                 @OA\Property(property="city", type="object", nullable=true,
-     *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="name", type="string", example="Cairo"),
-     *                     @OA\Property(property="country_id", type="integer", example=1),
-     *                     @OA\Property(property="country", type="object", nullable=true,
-     *                         @OA\Property(property="id", type="integer", example=1),
-     *                         @OA\Property(property="name", type="string", example="Egypt")
-     *                     )
-     *                 )
+     *                 @OA\Property(property="city", type="object", nullable=true)
      *             ),
-     *             @OA\Property(property="breast_size", type="string", nullable=true, example="90", description="Client body measurement"),
-     *             @OA\Property(property="waist_size", type="string", nullable=true, example="70", description="Client body measurement"),
-     *             @OA\Property(property="sleeve_size", type="string", nullable=true, example="60", description="Client body measurement"),
-     *             @OA\Property(property="hip_size", type="string", nullable=true, example="95", description="Client body measurement"),
-     *             @OA\Property(property="shoulder_size", type="string", nullable=true, example="40", description="Client body measurement"),
-     *             @OA\Property(property="length_size", type="string", nullable=true, example="160", description="Client body measurement"),
-     *             @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit", description="Notes about measurements"),
-     *             @OA\Property(property="last_measurement_date", type="string", format="date", nullable=true, example="2025-01-09", description="Date of last measurement"),
      *             @OA\Property(property="phones", type="array", @OA\Items(type="object")),
      *             @OA\Property(property="orders", type="array", @OA\Items(type="object"))
      *         )
@@ -160,41 +113,37 @@ class ClientController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"first_name", "middle_name", "last_name", "date_of_birth", "national_id", "address", "phones"},
-     *             @OA\Property(property="first_name", type="string", example="Ahmed"),
-     *             @OA\Property(property="middle_name", type="string", example="Mohamed"),
-     *             @OA\Property(property="last_name", type="string", example="Ali"),
-     *             @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-15"),
+     *             required={"name", "national_id", "address", "phones"},
+     *             @OA\Property(property="name", type="string", example="Ahmed Mohamed Ali"),
+     *             @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-15", nullable=true),
      *             @OA\Property(property="national_id", type="string", example="12345678901234", description="Must be exactly 14 digits and unique"),
-     *             @OA\Property(property="source", type="string", nullable=true, example="website (optional)", description="Optional. Source of the client"),
+     *             @OA\Property(property="source", type="string", nullable=true, example="website"),
      *             @OA\Property(
      *                 property="address",
      *                 type="object",
-     *                 required={"street", "building", "city_id"},
+     *                 required={"city_id", "address"},
      *                 @OA\Property(property="city_id", type="integer", example=1, description="ID of an existing city"),
-     *                 @OA\Property(property="street", type="string", example="Tahrir Square"),
-     *                 @OA\Property(property="building", type="string", example="2A"),
-     *                 @OA\Property(property="notes", type="string", nullable=true, example="Next to the bank, 3rd floor (optional)", description="Optional")
+     *                 @OA\Property(property="address", type="string", example="123 Main Street, Building 5A")
      *             ),
      *             @OA\Property(
      *                 property="phones",
      *                 type="array",
-     *                 description="At least one phone is required. Phone numbers must be unique within request and globally.",
+     *                 description="At least one phone is required.",
      *                 @OA\Items(
      *                     type="object",
      *                     required={"phone"},
-     *                     @OA\Property(property="phone", type="string", example="01234567890", description="Phone number (must be unique globally)"),
-     *                     @OA\Property(property="type", type="string", enum={"mobile", "landline", "whatsapp"}, nullable=true, example="mobile (optional) (allowed: mobile, landline, whatsapp)", description="Possible values: mobile, landline, whatsapp")
+     *                     @OA\Property(property="phone", type="string", example="01234567890"),
+     *                     @OA\Property(property="type", type="string", enum={"mobile", "landline", "whatsapp"}, nullable=true)
      *                 ),
      *                 minItems=1
      *             ),
-     *             @OA\Property(property="breast_size", type="string", nullable=true, example="90", description="Client body measurement (optional)"),
-     *             @OA\Property(property="waist_size", type="string", nullable=true, example="70", description="Client body measurement (optional)"),
-     *             @OA\Property(property="sleeve_size", type="string", nullable=true, example="60", description="Client body measurement (optional)"),
-     *             @OA\Property(property="hip_size", type="string", nullable=true, example="95", description="Client body measurement (optional)"),
-     *             @OA\Property(property="shoulder_size", type="string", nullable=true, example="40", description="Client body measurement (optional)"),
-     *             @OA\Property(property="length_size", type="string", nullable=true, example="160", description="Client body measurement (optional)"),
-     *             @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit", description="Notes about measurements (optional)")
+     *             @OA\Property(property="breast_size", type="string", nullable=true, example="90"),
+     *             @OA\Property(property="waist_size", type="string", nullable=true, example="70"),
+     *             @OA\Property(property="sleeve_size", type="string", nullable=true, example="60"),
+     *             @OA\Property(property="hip_size", type="string", nullable=true, example="95"),
+     *             @OA\Property(property="shoulder_size", type="string", nullable=true, example="40"),
+     *             @OA\Property(property="length_size", type="string", nullable=true, example="160"),
+     *             @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit")
      *         )
      *     ),
      *     @OA\Response(
@@ -203,37 +152,17 @@ class ClientController extends Controller
      *         @OA\JsonContent(
      *             type="object",
      *             @OA\Property(property="id", type="integer", example=1),
-     *             @OA\Property(property="first_name", type="string", example="Ahmed"),
-     *             @OA\Property(property="middle_name", type="string", example="Mohamed"),
-     *             @OA\Property(property="last_name", type="string", example="Ali"),
+     *             @OA\Property(property="name", type="string", example="Ahmed Mohamed Ali"),
      *             @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-15"),
      *             @OA\Property(property="national_id", type="string", example="12345678901234"),
-     *             @OA\Property(property="source", type="string", nullable=true, example="website (optional)"),
+     *             @OA\Property(property="source", type="string", nullable=true, example="website"),
      *             @OA\Property(property="address_id", type="integer", example=1),
      *             @OA\Property(property="address", type="object", nullable=true,
      *                 @OA\Property(property="id", type="integer", example=1),
-     *                 @OA\Property(property="street", type="string", example="Tahrir Square"),
-     *                 @OA\Property(property="building", type="string", example="2A"),
-     *                 @OA\Property(property="notes", type="string", nullable=true, example="Notes (optional)"),
+     *                 @OA\Property(property="address", type="string", example="123 Main Street, Building 5A"),
      *                 @OA\Property(property="city_id", type="integer", example=1),
-     *                 @OA\Property(property="city", type="object", nullable=true,
-     *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="name", type="string", example="Cairo"),
-     *                     @OA\Property(property="country_id", type="integer", example=1),
-     *                     @OA\Property(property="country", type="object", nullable=true,
-     *                         @OA\Property(property="id", type="integer", example=1),
-     *                         @OA\Property(property="name", type="string", example="Egypt")
-     *                     )
-     *                 )
+     *                 @OA\Property(property="city", type="object", nullable=true)
      *             ),
-     *             @OA\Property(property="breast_size", type="string", nullable=true, example="90"),
-     *             @OA\Property(property="waist_size", type="string", nullable=true, example="70"),
-     *             @OA\Property(property="sleeve_size", type="string", nullable=true, example="60"),
-     *             @OA\Property(property="hip_size", type="string", nullable=true, example="95"),
-     *             @OA\Property(property="shoulder_size", type="string", nullable=true, example="40"),
-     *             @OA\Property(property="length_size", type="string", nullable=true, example="160"),
-     *             @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit"),
-     *             @OA\Property(property="last_measurement_date", type="string", format="date", nullable=true, example="2025-01-09"),
      *             @OA\Property(property="phones", type="array", @OA\Items(type="object"))
      *         )
      *     ),
@@ -244,10 +173,7 @@ class ClientController extends Controller
     {
         // Validate client data
         $data = $request->validate([
-            'first_name' => 'required|string',
-            'middle_name' => 'required|string',
-            'last_name' => 'required|string',
-
+            'name' => 'required|string|max:255',
             'date_of_birth' => 'nullable|date',
             'national_id' => 'required|string|digits:14|unique:clients,national_id',
             'source' => 'nullable|string',
@@ -259,11 +185,12 @@ class ClientController extends Controller
             'shoulder_size' => 'nullable|string|max:20',
             'length_size' => 'nullable|string|max:20',
             'measurement_notes' => 'nullable|string|max:1000',
+
+            // Simplified address: city_id and address string
             'address' => 'required|array',
-            'address.street' => 'required|string',
-            'address.building' => 'required|string',
-            'address.notes' => 'nullable|string',
             'address.city_id' => 'required|exists:cities,id',
+            'address.address' => 'required|string|max:500',
+
             'phones' => 'required|array|min:1',
             'phones.*.phone' => 'required|string',
             'phones.*.type' => 'nullable|string',
@@ -308,8 +235,13 @@ class ClientController extends Controller
 
         // Create client, address, and phones in transaction
         $item = DB::transaction(function () use ($data, $address, $phones) {
-            // Create address first
-            $addressModel = Address::create($address);
+            // Create address first (map simplified input to existing fields)
+            $addressModel = Address::create([
+                'city_id' => $address['city_id'],
+                'street' => $address['address'], // Store address string in street field
+                'building' => '',
+                'notes' => null,
+            ]);
 
             // Create client with address_id
             $data['address_id'] = $addressModel->id;
@@ -339,42 +271,37 @@ class ClientController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             @OA\Property(property="first_name", type="string", example="Ahmed"),
-     *             @OA\Property(property="middle_name", type="string", example="Mohamed"),
-     *             @OA\Property(property="last_name", type="string", example="Ali"),
+     *             @OA\Property(property="name", type="string", example="Ahmed Mohamed Ali"),
      *             @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-15"),
      *             @OA\Property(property="national_id", type="string", example="12345678901234", description="Must be exactly 14 digits and unique (if provided)"),
      *             @OA\Property(property="source", type="string", example="website", description="Optional. Source of the client"),
      *             @OA\Property(
      *                 property="address",
      *                 type="object",
-     *                 description="Optional. If provided, address will be updated (if id matches) or created (if no id or id doesn't match).",
-     *                 @OA\Property(property="id", type="integer", example=1, description="Optional. Include to update existing address, omit to create new"),
+     *                 description="Optional. If provided, address will be updated.",
      *                 @OA\Property(property="city_id", type="integer", example=1, description="ID of an existing city"),
-     *                 @OA\Property(property="street", type="string", example="Tahrir Square"),
-     *                 @OA\Property(property="building", type="string", example="2A"),
-     *                 @OA\Property(property="notes", type="string", example="Next to the bank, 3rd floor", description="Optional")
+     *                 @OA\Property(property="address", type="string", example="123 Main Street, Building 5A")
      *             ),
      *             @OA\Property(
      *                 property="phones",
      *                 type="array",
-     *                 description="Optional. If provided, phones will be synced (missing phones deleted, new phones added, existing phones updated). Phone numbers must be unique within request and globally (excluding current client's phones).",
+     *                 description="Optional. If provided, phones will be synced.",
      *                 @OA\Items(
      *                     type="object",
-     *                     required={"phone", "type"},
-     *                     @OA\Property(property="id", type="integer", example=1, description="Optional. Include to update existing phone, omit to create new"),
-     *                     @OA\Property(property="phone", type="string", example="01234567890", description="Phone number (must be unique globally, excluding current client's phones)"),
-     *                     @OA\Property(property="type", type="string", enum={"mobile", "landline", "whatsapp"}, example="mobile (allowed: mobile, landline, whatsapp)", description="Possible values: mobile, landline, whatsapp")
+     *                     required={"phone"},
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="phone", type="string", example="01234567890"),
+     *                     @OA\Property(property="type", type="string", enum={"mobile", "landline", "whatsapp"})
      *                 ),
      *                 minItems=1
      *             ),
-     *             @OA\Property(property="breast_size", type="string", nullable=true, example="90", description="Client body measurement (optional)"),
-     *             @OA\Property(property="waist_size", type="string", nullable=true, example="70", description="Client body measurement (optional)"),
-     *             @OA\Property(property="sleeve_size", type="string", nullable=true, example="60", description="Client body measurement (optional)"),
-     *             @OA\Property(property="hip_size", type="string", nullable=true, example="95", description="Client body measurement (optional)"),
-     *             @OA\Property(property="shoulder_size", type="string", nullable=true, example="40", description="Client body measurement (optional)"),
-     *             @OA\Property(property="length_size", type="string", nullable=true, example="160", description="Client body measurement (optional)"),
-     *             @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit", description="Notes about measurements (optional)")
+     *             @OA\Property(property="breast_size", type="string", nullable=true, example="90"),
+     *             @OA\Property(property="waist_size", type="string", nullable=true, example="70"),
+     *             @OA\Property(property="sleeve_size", type="string", nullable=true, example="60"),
+     *             @OA\Property(property="hip_size", type="string", nullable=true, example="95"),
+     *             @OA\Property(property="shoulder_size", type="string", nullable=true, example="40"),
+     *             @OA\Property(property="length_size", type="string", nullable=true, example="160"),
+     *             @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit")
      *         )
      *     ),
      *     @OA\Response(
@@ -383,37 +310,17 @@ class ClientController extends Controller
      *         @OA\JsonContent(
      *             type="object",
      *             @OA\Property(property="id", type="integer", example=1),
-     *             @OA\Property(property="first_name", type="string", example="Ahmed"),
-     *             @OA\Property(property="middle_name", type="string", example="Mohamed"),
-     *             @OA\Property(property="last_name", type="string", example="Ali"),
+     *             @OA\Property(property="name", type="string", example="Ahmed Mohamed Ali"),
      *             @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-15"),
      *             @OA\Property(property="national_id", type="string", example="12345678901234"),
-     *             @OA\Property(property="source", type="string", nullable=true, example="website (optional)"),
+     *             @OA\Property(property="source", type="string", nullable=true, example="website"),
      *             @OA\Property(property="address_id", type="integer", example=1),
      *             @OA\Property(property="address", type="object", nullable=true,
      *                 @OA\Property(property="id", type="integer", example=1),
-     *                 @OA\Property(property="street", type="string", example="Tahrir Square"),
-     *                 @OA\Property(property="building", type="string", example="2A"),
-     *                 @OA\Property(property="notes", type="string", nullable=true, example="Notes (optional)"),
+     *                 @OA\Property(property="address", type="string", example="123 Main Street, Building 5A"),
      *                 @OA\Property(property="city_id", type="integer", example=1),
-     *                 @OA\Property(property="city", type="object", nullable=true,
-     *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="name", type="string", example="Cairo"),
-     *                     @OA\Property(property="country_id", type="integer", example=1),
-     *                     @OA\Property(property="country", type="object", nullable=true,
-     *                         @OA\Property(property="id", type="integer", example=1),
-     *                         @OA\Property(property="name", type="string", example="Egypt")
-     *                     )
-     *                 )
+     *                 @OA\Property(property="city", type="object", nullable=true)
      *             ),
-     *             @OA\Property(property="breast_size", type="string", nullable=true, example="90"),
-     *             @OA\Property(property="waist_size", type="string", nullable=true, example="70"),
-     *             @OA\Property(property="sleeve_size", type="string", nullable=true, example="60"),
-     *             @OA\Property(property="hip_size", type="string", nullable=true, example="95"),
-     *             @OA\Property(property="shoulder_size", type="string", nullable=true, example="40"),
-     *             @OA\Property(property="length_size", type="string", nullable=true, example="160"),
-     *             @OA\Property(property="measurement_notes", type="string", nullable=true, example="Prefers loose fit"),
-     *             @OA\Property(property="last_measurement_date", type="string", format="date", nullable=true, example="2025-01-09"),
      *             @OA\Property(property="phones", type="array", @OA\Items(type="object"))
      *         )
      *     ),
@@ -427,10 +334,8 @@ class ClientController extends Controller
 
         // Validate client data
         $validationRules = [
-            'first_name' => 'sometimes|required|string',
-            'middle_name' => 'sometimes|required|string',
-            'last_name' => 'sometimes|required|string',
-            'date_of_birth' => 'sometimes|required|date',
+            'name' => 'sometimes|required|string|max:255',
+            'date_of_birth' => 'sometimes|nullable|date',
             'national_id' => "sometimes|required|string|digits:14|unique:clients,national_id,{$id}",
             'source' => 'nullable|string',
             // Body measurements (optional)
@@ -442,10 +347,8 @@ class ClientController extends Controller
             'length_size' => 'nullable|string|max:20',
             'measurement_notes' => 'nullable|string|max:1000',
             'address' => 'sometimes|required|array',
-            'address.street' => 'required_with:address|string',
-            'address.building' => 'required_with:address|string',
-            'address.notes' => 'nullable|string',
             'address.city_id' => 'required_with:address|exists:cities,id',
+            'address.address' => 'required_with:address|string|max:500',
         ];
 
         // If phones are provided, validate them
@@ -545,19 +448,23 @@ class ClientController extends Controller
 
         // Update client, address, and sync phones in transaction
         $item = DB::transaction(function () use ($item, $data, $address, $phones) {
-            // Update or create address if provided
+            // Update address if provided (map simplified input to existing fields)
             if ($address !== null) {
-                if (isset($address['id']) && $item->address_id == $address['id']) {
+                $addressModel = $item->address;
+                if ($addressModel) {
                     // Update existing address
-                    $addressModel = $item->address;
-                    $addressData = $address;
-                    unset($addressData['id']);
-                    $addressModel->update($addressData);
+                    $addressModel->update([
+                        'city_id' => $address['city_id'],
+                        'street' => $address['address'], // Store address string in street field
+                    ]);
                 } else {
-                    // Create new address
-                    $addressData = $address;
-                    unset($addressData['id']);
-                    $addressModel = Address::create($addressData);
+                    // Create new address if client doesn't have one
+                    $addressModel = Address::create([
+                        'city_id' => $address['city_id'],
+                        'street' => $address['address'],
+                        'building' => '',
+                        'notes' => null,
+                    ]);
                     $data['address_id'] = $addressModel->id;
                 }
             }

@@ -47,5 +47,8 @@ class DatabaseSeeder extends Seeder
 
         // Seed inventories for branches, workshops, factories
         $this->call(InventorySeeder::class);
+
+        // Seed sample client
+        $this->call(ClientSeeder::class);
     }
 }

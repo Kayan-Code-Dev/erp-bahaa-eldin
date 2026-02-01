@@ -24,20 +24,30 @@ class PaymentController extends Controller
      */
     private function recalculateOrderPayments($order)
     {
-        // Refresh order to get latest payments from database
+        // Refresh order to get latest data
         $order->refresh();
+        $order->load('items');
 
-        // Recalculate total paid from non-fee payments only (fees are tracked separately)
-        $totalPaid = Payment::where('order_id', $order->id)
+        // Calculate paid from two sources:
+        // 1. Item-level paid (from cloth_order pivot)
+        $itemsPaid = $order->items->sum(function ($item) {
+            return $item->pivot->paid ?? 0;
+        });
+
+        // 2. Additional payments from payments table (excluding initial payments already in items)
+        $additionalPayments = Payment::where('order_id', $order->id)
             ->where('status', 'paid')
             ->where('payment_type', '!=', 'fee')
+            ->where('payment_type', '!=', 'initial') // Exclude initial (already counted in items)
             ->sum('amount');
+
+        $totalPaid = $itemsPaid + $additionalPayments;
         $order->paid = $totalPaid;
 
         // Calculate remaining: total_price - paid (fees do not affect remaining)
         $order->remaining = max(0, $order->total_price - $totalPaid);
 
-        // Update order status based on paid amount (compared to total_price only, fees excluded)
+        // Update order status based on paid amount
         if ($order->paid >= $order->total_price) {
             $order->status = 'paid';
             $order->remaining = 0;
@@ -367,7 +377,7 @@ class PaymentController extends Controller
 
             // Create transaction in cashbox if a branch is specified or available
             $branchId = $data['branch_id'] ?? $order->branch_id ?? null;
-            
+
             if ($branchId) {
                 $branch = \App\Models\Branch::find($branchId);
                 if ($branch && $branch->cashbox && $branch->cashbox->is_active) {
