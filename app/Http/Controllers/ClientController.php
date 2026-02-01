@@ -247,7 +247,8 @@ class ClientController extends Controller
             'first_name' => 'required|string',
             'middle_name' => 'required|string',
             'last_name' => 'required|string',
-            'date_of_birth' => 'required|date',
+
+            'date_of_birth' => 'nullable|date',
             'national_id' => 'required|string|digits:14|unique:clients,national_id',
             'source' => 'nullable|string',
             // Body measurements (optional)

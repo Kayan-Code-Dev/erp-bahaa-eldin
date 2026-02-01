@@ -740,14 +740,26 @@ class OrderController extends Controller
             'discount_value' => 'required_with:discount_type|nullable|numeric|gt:0',
             'items' => 'nullable|array',
             'items.*.cloth_id' => 'required_with:items|integer|exists:clothes,id',
-            'items.*.price' => 'required_with:items|numeric',
+            'items.*.price' => 'required_with:items|numeric|min:0',
+            'items.*.quantity' => 'nullable|integer|min:1',
+            'items.*.paid' => 'nullable|numeric|min:0',
             'items.*.type' => 'required_with:items|string|in:buy,rent,tailoring',
-            'items.*.days_of_rent' => 'required_if:items.*.type,rent|nullable|integer',
+            'items.*.days_of_rent' => 'required_if:items.*.type,rent|nullable|integer|min:1',
             'items.*.occasion_datetime' => ['required_if:items.*.type,rent', 'nullable', new MySqlDateTime()],
             'items.*.delivery_date' => 'required_if:items.*.type,rent|nullable|date|after_or_equal:today',
             'items.*.notes' => 'nullable|string',
             'items.*.discount_type' => 'nullable|string|in:percentage,fixed',
             'items.*.discount_value' => 'required_with:items.*.discount_type|nullable|numeric|gt:0',
+            // Measurements (مقاسات)
+            'items.*.sleeve_length' => 'nullable|string|max:50',
+            'items.*.forearm' => 'nullable|string|max:50',
+            'items.*.shoulder_width' => 'nullable|string|max:50',
+            'items.*.cuffs' => 'nullable|string|max:50',
+            'items.*.waist' => 'nullable|string|max:50',
+            'items.*.chest_length' => 'nullable|string|max:50',
+            'items.*.total_length' => 'nullable|string|max:50',
+            'items.*.hinch' => 'nullable|string|max:50',
+            'items.*.dress_size' => 'nullable|string|max:50',
         ]);
 
         // Handle entity_type and entity_id if provided
@@ -780,10 +792,15 @@ class OrderController extends Controller
             }
         }
 
-        // Calculate total_price from items with discounts if items are provided
+        // Calculate totals from items if items are provided
+        $calculatedTotalPaid = null;
         if (isset($data['items'])) {
-            $subtotal = 0;
+            $itemsSubtotal = 0;
+            $totalPaid = 0;
+
             foreach ($data['items'] as $item) {
+                // Calculate item total (price * quantity - item discount)
+                $quantity = $item['quantity'] ?? 1;
                 $itemPrice = $item['price'];
                 $itemDiscountType = $item['discount_type'] ?? null;
                 $itemDiscountValue = $item['discount_value'] ?? 0;
@@ -793,35 +810,43 @@ class OrderController extends Controller
                 } elseif ($itemDiscountType === 'fixed') {
                     $itemPrice = max(0, $itemPrice - $itemDiscountValue);
                 }
-                $subtotal += $itemPrice;
+                $itemTotal = $itemPrice * $quantity;
+                $itemsSubtotal += $itemTotal;
+
+                // Sum item paid amounts
+                $totalPaid += ($item['paid'] ?? 0);
             }
 
             // Apply order-level discount
             $orderDiscountType = $data['discount_type'] ?? $order->discount_type ?? null;
             $orderDiscountValue = $data['discount_value'] ?? $order->discount_value ?? 0;
-            $totalPrice = $subtotal;
+            $totalPrice = $itemsSubtotal;
 
             if ($orderDiscountType === 'percentage') {
-                $totalPrice = $subtotal * (1 - $orderDiscountValue / 100);
+                $totalPrice = $itemsSubtotal * (1 - $orderDiscountValue / 100);
             } elseif ($orderDiscountType === 'fixed') {
-                $totalPrice = max(0, $subtotal - $orderDiscountValue);
+                $totalPrice = max(0, $itemsSubtotal - $orderDiscountValue);
             }
 
             $data['total_price'] = $totalPrice;
+            $data['paid'] = $totalPaid;
+            $data['remaining'] = max(0, $totalPrice - $totalPaid);
+            $calculatedTotalPaid = $totalPaid;
         } elseif (isset($data['discount_type']) || isset($data['discount_value'])) {
             // Recalculate total if only discount changed
             $order->load('items');
             $subtotal = $order->items->sum(function ($item) {
                 $price = $item->pivot->price;
+                $quantity = $item->pivot->quantity ?? 1;
                 $discountType = $item->pivot->discount_type ?? null;
                 $discountValue = $item->pivot->discount_value ?? 0;
 
                 if ($discountType === 'percentage') {
-                    return $price * (1 - $discountValue / 100);
+                    return ($price * (1 - $discountValue / 100)) * $quantity;
                 } elseif ($discountType === 'fixed') {
-                    return max(0, $price - $discountValue);
+                    return max(0, $price - $discountValue) * $quantity;
                 }
-                return $price;
+                return $price * $quantity;
             });
 
             $orderDiscountType = $data['discount_type'] ?? $order->discount_type ?? null;
@@ -835,10 +860,11 @@ class OrderController extends Controller
             }
 
             $data['total_price'] = $totalPrice;
+            $data['remaining'] = max(0, $totalPrice - $order->paid);
         }
 
-        // Status, paid, and remaining are auto-calculated, remove from update data
-        $updateData = collect($data)->except(['items', 'entity_type', 'entity_id', 'status', 'paid', 'remaining'])->toArray();
+        // Status is auto-calculated, remove from update data (but keep paid and remaining)
+        $updateData = collect($data)->except(['items', 'entity_type', 'entity_id', 'status'])->toArray();
 
         // Log field changes before update
         foreach ($updateData as $field => $newValue) {
@@ -960,22 +986,49 @@ class OrderController extends Controller
                 $itemStatus = $existingPivot ? $existingPivot->pivot->status : $order->status;
 
                 // Get existing pivot to preserve returnable status if item already exists
-                $existingPivotForReturnable = $order->items()->where('clothes.id', $cloth->id)->first();
-                $returnableValue = $existingPivotForReturnable && $existingPivotForReturnable->pivot
-                    ? $existingPivotForReturnable->pivot->returnable
+                $returnableValue = $existingPivot && $existingPivot->pivot
+                    ? $existingPivot->pivot->returnable
                     : (($row['type'] === 'rent') ? true : false);
+
+                // Calculate item total and remaining
+                $quantity = $row['quantity'] ?? 1;
+                $itemPrice = $row['price'];
+                $itemDiscountType = $row['discount_type'] ?? null;
+                $itemDiscountValue = $row['discount_value'] ?? 0;
+
+                if ($itemDiscountType === 'percentage') {
+                    $itemPrice = $itemPrice * (1 - $itemDiscountValue / 100);
+                } elseif ($itemDiscountType === 'fixed') {
+                    $itemPrice = max(0, $itemPrice - $itemDiscountValue);
+                }
+                $itemTotal = $itemPrice * $quantity;
+                $itemPaid = $row['paid'] ?? 0;
+                $itemRemaining = max(0, $itemTotal - $itemPaid);
 
                 $syncData[$cloth->id] = [
                     'price' => $row['price'],
                     'type' => $row['type'],
+                    'quantity' => $quantity,
+                    'paid' => $itemPaid,
+                    'remaining' => $itemRemaining,
                     'days_of_rent' => ($row['type'] === 'rent') ? ($row['days_of_rent'] ?? 0) : null,
                     'occasion_datetime' => ($row['type'] === 'rent') ? ($row['occasion_datetime'] ?? null) : null,
                     'delivery_date' => ($row['type'] === 'rent') ? ($row['delivery_date'] ?? null) : null,
-                    'status' => $itemStatus, // Sync with order status
+                    'status' => $itemStatus,
                     'notes' => $row['notes'] ?? null,
                     'discount_type' => $row['discount_type'] ?? null,
                     'discount_value' => $row['discount_value'] ?? null,
                     'returnable' => $returnableValue,
+                    // Measurements (مقاسات)
+                    'sleeve_length' => $row['sleeve_length'] ?? null,
+                    'forearm' => $row['forearm'] ?? null,
+                    'shoulder_width' => $row['shoulder_width'] ?? null,
+                    'cuffs' => $row['cuffs'] ?? null,
+                    'waist' => $row['waist'] ?? null,
+                    'chest_length' => $row['chest_length'] ?? null,
+                    'total_length' => $row['total_length'] ?? null,
+                    'hinch' => $row['hinch'] ?? null,
+                    'dress_size' => $row['dress_size'] ?? null,
                 ];
 
                 // Create history record if this is a new cloth in the order
@@ -997,9 +1050,17 @@ class OrderController extends Controller
             }
             $order->items()->sync($syncData);
 
-            // Recalculate remaining again after items update (in case total_price changed) - fees do not affect remaining
+            // Recalculate order totals from items
             $order->refresh();
-            $order->remaining = max(0, $order->total_price - $order->paid);
+            $order->load('items');
+
+            // Sum paid from all items
+            $totalPaid = $order->items->sum(function ($item) {
+                return $item->pivot->paid ?? 0;
+            });
+
+            $order->paid = $totalPaid;
+            $order->remaining = max(0, $order->total_price - $totalPaid);
             $order->save();
         }
 
