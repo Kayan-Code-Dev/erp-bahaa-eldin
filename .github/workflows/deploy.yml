@@ -32,8 +32,7 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
-            # Install Composer dependencies (with doctrine/annotations for swagger)
-            composer require doctrine/annotations --no-interaction 2>/dev/null || true
+            # Install Composer dependencies
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
             # Run Laravel optimizations
