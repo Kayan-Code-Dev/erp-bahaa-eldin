@@ -395,11 +395,16 @@ class OrderController extends Controller
     /**
      * @OA\Get(
      *     path="/api/v1/orders",
-     *     summary="List all orders",
+     *     summary="List all orders with filters",
      *     tags={"Orders"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="page", in="query", required=false, description="Page number", @OA\Schema(type="integer", default=1)),
      *     @OA\Parameter(name="per_page", in="query", required=false, description="Items per page", @OA\Schema(type="integer", default=15)),
+     *     @OA\Parameter(name="status", in="query", required=false, description="Filter by order status", @OA\Schema(type="string", enum={"created", "partially_paid", "paid", "delivered", "finished", "canceled"})),
+     *     @OA\Parameter(name="client_id", in="query", required=false, description="Filter by client ID", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="date_from", in="query", required=false, description="Filter orders created from date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="date_to", in="query", required=false, description="Filter orders created to date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="search", in="query", required=false, description="Search by order ID, client name or national ID", @OA\Schema(type="string")),
      *     @OA\Response(
      *         response=200,
      *         description="Successful operation",
@@ -473,6 +478,36 @@ class OrderController extends Controller
 
         // Filter by accessible inventories based on user's entity assignments
         $query = $this->filterByAccessibleInventories($query, $request);
+
+        // Filter by status
+        if ($request->has('status') && $request->query('status')) {
+            $query->where('status', $request->query('status'));
+        }
+
+        // Filter by client_id
+        if ($request->has('client_id') && $request->query('client_id')) {
+            $query->where('client_id', $request->query('client_id'));
+        }
+
+        // Filter by date range (created_at)
+        if ($request->has('date_from') && $request->query('date_from')) {
+            $query->whereDate('created_at', '>=', $request->query('date_from'));
+        }
+        if ($request->has('date_to') && $request->query('date_to')) {
+            $query->whereDate('created_at', '<=', $request->query('date_to'));
+        }
+
+        // Search by order ID or client name
+        if ($request->has('search') && $request->query('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'LIKE', "%{$search}%")
+                  ->orWhereHas('client', function ($q2) use ($search) {
+                      $q2->where('name', 'LIKE', "%{$search}%")
+                         ->orWhere('national_id', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
 
         $items = $query->orderBy('created_at', 'desc')
             ->paginate($perPage);
