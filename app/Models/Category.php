@@ -23,4 +23,9 @@ class Category extends Model
         return $this->belongsToMany(Subcategory::class, 'category_subcategory')
                     ->withTimestamps();
     }
+
+    public function supplierOrders()
+    {
+        return $this->hasMany(SupplierOrder::class);
+    }
 }

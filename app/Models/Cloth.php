@@ -76,4 +76,11 @@ class Cloth extends Model
     {
         return $this->hasMany(Rent::class);
     }
+
+    public function supplierOrders()
+    {
+        return $this->belongsToMany(SupplierOrder::class, 'supplier_order_clothes')
+                    ->withPivot(['price', 'notes'])
+                    ->withTimestamps();
+    }
 }

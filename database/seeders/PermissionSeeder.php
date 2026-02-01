@@ -82,7 +82,7 @@ class PermissionSeeder extends Seeder
         'workshops.update' => 'Update Workshops',
         'workshops.delete' => 'Delete Workshops',
         'workshops.export' => 'Export Workshops',
-        
+
         // Workshop cloth management permissions
         'workshops.manage-clothes' => 'Manage Clothes in Workshop',
         'workshops.approve-transfers' => 'Approve Incoming Transfers to Workshop',
@@ -97,7 +97,7 @@ class PermissionSeeder extends Seeder
         'factories.delete' => 'Delete Factories',
         'factories.export' => 'Export Factories',
         'factories.manage' => 'Manage Factory Settings and Statistics',
-        
+
         // Factory User permissions (for factory users to manage their orders)
         'factories.orders.view' => 'View Factory Orders',
         'factories.orders.accept' => 'Accept Tailoring Items',
@@ -171,6 +171,20 @@ class PermissionSeeder extends Seeder
         'phones.update' => 'Update Phones',
         'phones.delete' => 'Delete Phones',
         'phones.export' => 'Export Phones',
+
+        // Supplier permissions
+        'suppliers.view' => 'View Suppliers',
+        'suppliers.create' => 'Create Suppliers',
+        'suppliers.update' => 'Update Suppliers',
+        'suppliers.delete' => 'Delete Suppliers',
+        'suppliers.export' => 'Export Suppliers',
+
+        // Supplier Order permissions
+        'supplier-orders.view' => 'View Supplier Orders',
+        'supplier-orders.create' => 'Create Supplier Orders',
+        'supplier-orders.update' => 'Update Supplier Orders',
+        'supplier-orders.delete' => 'Delete Supplier Orders',
+        'supplier-orders.export' => 'Export Supplier Orders',
 
         // Accounting module permissions - Cashbox
         'cashbox.view' => 'View Cashbox',
@@ -414,7 +428,7 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         $this->command->info('Creating permissions...');
-        
+
         // Create all permissions
         foreach ($this->permissions as $name => $displayName) {
             $parsed = Permission::parseName($name);
@@ -428,12 +442,12 @@ class PermissionSeeder extends Seeder
                 ]
             );
         }
-        
+
         $this->command->info('Created ' . count($this->permissions) . ' permissions.');
 
         // Create roles and assign permissions
         $this->command->info('Creating roles and assigning permissions...');
-        
+
         foreach ($this->roles as $roleName => $roleConfig) {
             $role = Role::firstOrCreate(
                 ['name' => $roleName],
@@ -442,7 +456,7 @@ class PermissionSeeder extends Seeder
 
             $permissionsToAssign = $this->resolvePermissions($roleConfig['permissions']);
             $role->syncPermissions($permissionsToAssign);
-            
+
             $this->command->info("  - Created role '{$roleName}' with " . count($permissionsToAssign) . " permissions.");
         }
 
@@ -466,7 +480,7 @@ class PermissionSeeder extends Seeder
         }
 
         $resolved = [];
-        
+
         foreach ($permissions as $pattern) {
             if (str_ends_with($pattern, '.*')) {
                 // Module wildcard: 'clients.*' matches 'clients.view', 'clients.create', etc.
@@ -493,9 +507,9 @@ class PermissionSeeder extends Seeder
     protected function ensureSuperAdmin(): void
     {
         $superAdminEmail = User::SUPER_ADMIN_EMAIL;
-        
+
         $user = User::where('email', $superAdminEmail)->first();
-        
+
         if ($user) {
             // Ensure super admin has general_manager role
             $generalManagerRole = Role::where('name', 'general_manager')->first();
@@ -510,12 +524,12 @@ class PermissionSeeder extends Seeder
                 'email' => $superAdminEmail,
                 'password' => bcrypt('admin123'), // Default password - CHANGE IN PRODUCTION!
             ]);
-            
+
             $generalManagerRole = Role::where('name', 'general_manager')->first();
             if ($generalManagerRole) {
                 $user->assignRole($generalManagerRole);
             }
-            
+
             $this->command->warn("Created super admin user ({$superAdminEmail}) with default password 'admin123'. CHANGE THIS IN PRODUCTION!");
         }
     }

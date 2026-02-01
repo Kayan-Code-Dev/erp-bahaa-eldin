@@ -11,13 +11,19 @@ abstract class Controller
      * Transform pagination response to include current_page, total, and total_pages at root level
      *
      * @param \Illuminate\Contracts\Pagination\LengthAwarePaginator $paginator
+     * @param string|null $resourceClass Optional resource class to transform items
      * @return \Illuminate\Http\JsonResponse
      */
-    protected function paginatedResponse($paginator)
+    protected function paginatedResponse($paginator, ?string $resourceClass = null)
     {
+        // Transform items through resource class if provided
+        $data = $resourceClass
+            ? $resourceClass::collection($paginator->items())
+            : $paginator->items();
+
         // Ensure mandatory pagination fields are at root level
         $response = [
-            'data' => $paginator->items(),
+            'data' => $data,
             'current_page' => $paginator->currentPage(),
             'total' => $paginator->total(),
             'total_pages' => $paginator->lastPage(),
@@ -40,7 +46,7 @@ abstract class Controller
     protected function exportToCsv($collection, $exportClass, $filename = null)
     {
         $filename = $filename ?? 'export_' . date('Y-m-d_His') . '.csv';
-        
+
         return Excel::download(new $exportClass($collection), $filename, \Maatwebsite\Excel\Excel::CSV, [
             'Content-Type' => 'text/csv',
         ]);

@@ -42,6 +42,8 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FactoryOrderController;
 use App\Http\Controllers\FactoryDashboardController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierOrderController;
 
 // Versioned API (v1). Mounts v1 endpoints under /api/v1
 // Apply API error middleware to all v1 routes so we return consistent JSON errors
@@ -99,6 +101,28 @@ Route::prefix('v1')->middleware(['force.json','api.error'])->group(function () {
 		Route::put('/addresses/{id}', [AddressController::class, 'update'])->middleware('permission:addresses.update');
 		Route::delete('/addresses/{id}', [AddressController::class, 'destroy'])->middleware('permission:addresses.delete');
 
+		// ==================== Suppliers ====================
+		Route::prefix('suppliers')->group(function () {
+			Route::get('/', [SupplierController::class, 'index'])->middleware('permission:suppliers.view')->name('suppliers.index');
+			Route::get('/export', [SupplierController::class, 'export'])->middleware('permission:suppliers.export')->name('suppliers.export');
+			Route::post('/store', [SupplierController::class, 'store'])->middleware('permission:suppliers.create')->name('suppliers.store');
+			Route::get('/show/{id}', [SupplierController::class, 'show'])->middleware('permission:suppliers.view')->name('suppliers.show');
+			Route::put('/update/{id}', [SupplierController::class, 'update'])->middleware('permission:suppliers.update')->name('suppliers.update');
+			Route::delete('/delete/{id}', [SupplierController::class, 'destroy'])->middleware('permission:suppliers.delete')->name('suppliers.destroy');
+		});
+
+		// ==================== Supplier Orders ====================
+		Route::prefix('supplier-orders')->group(function () {
+			Route::get('/', [SupplierOrderController::class, 'index'])->middleware('permission:supplier-orders.view')->name('supplier-orders.index');
+			Route::get('/export', [SupplierOrderController::class, 'export'])->middleware('permission:supplier-orders.export')->name('supplier-orders.export');
+			Route::get('/generate-number', [SupplierOrderController::class, 'generateNumber'])->middleware('permission:supplier-orders.create')->name('supplier-orders.generate-number');
+			Route::post('/store', [SupplierOrderController::class, 'store'])->middleware('permission:supplier-orders.create')->name('supplier-orders.store');
+			Route::get('/show/{id}', [SupplierOrderController::class, 'show'])->middleware('permission:supplier-orders.view')->name('supplier-orders.show');
+			Route::get('clothes/{id}', [SupplierOrderController::class, 'getClothes'])->middleware('permission:supplier-orders.view')->name('supplier-orders.clothes');
+			Route::put('/update/{id}', [SupplierOrderController::class, 'update'])->middleware('permission:supplier-orders.update')->name('supplier-orders.update');
+			Route::delete('/delete/{id}', [SupplierOrderController::class, 'destroy'])->middleware('permission:supplier-orders.delete')->name('supplier-orders.destroy');
+		});
+
 		// ==================== Inventories ====================
 		Route::get('/inventories', [InventoryController::class, 'index'])->middleware('permission:inventories.view');
 		Route::get('/inventories/export', [InventoryController::class, 'export'])->middleware('permission:inventories.export');
@@ -125,7 +149,7 @@ Route::prefix('v1')->middleware(['force.json','api.error'])->group(function () {
 		Route::get('/workshops/{id}', [WorkshopController::class, 'show'])->middleware('permission:workshops.view');
 		Route::put('/workshops/{id}', [WorkshopController::class, 'update'])->middleware('permission:workshops.update');
 		Route::delete('/workshops/{id}', [WorkshopController::class, 'destroy'])->middleware('permission:workshops.delete');
-		
+
 		// Workshop Cloth Management
 		Route::get('/workshops/{id}/clothes', [WorkshopController::class, 'clothes'])->middleware('permission:workshops.manage-clothes');
 		Route::get('/workshops/{id}/pending-transfers', [WorkshopController::class, 'pendingTransfers'])->middleware('permission:workshops.approve-transfers');

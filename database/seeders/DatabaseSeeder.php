@@ -30,5 +30,22 @@ class DatabaseSeeder extends Seeder
 
         // Seed admin user
         $this->call(AdminUserSeeder::class);
+
+        // Seed location data
+        $this->call(CountrySeeder::class);
+        $this->call(CitySeeder::class);
+
+        // Seed categories and subcategories
+        $this->call(CategorySeeder::class);
+        $this->call(SubcategorySeeder::class);
+
+        // Seed cloth types
+        $this->call(ClothTypeSeeder::class);
+
+        // Seed branches (depends on cities)
+        $this->call(BranchSeeder::class);
+
+        // Seed inventories for branches, workshops, factories
+        $this->call(InventorySeeder::class);
     }
 }
