@@ -15,16 +15,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mbstring, xml, ctype, json, bcmath, curl, zip, pdo, mysql
-          coverage: none
-
-      - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -39,7 +29,8 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
-            # Install Composer dependencies
+            # Install Composer dependencies (with doctrine/annotations for swagger)
+            composer require doctrine/annotations --no-interaction 2>/dev/null || true
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
             # Run Laravel optimizations
