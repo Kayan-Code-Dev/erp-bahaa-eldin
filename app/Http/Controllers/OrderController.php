@@ -404,6 +404,8 @@ class OrderController extends Controller
      *     @OA\Parameter(name="client_id", in="query", required=false, description="Filter by client ID", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="date_from", in="query", required=false, description="Filter orders created from date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="date_to", in="query", required=false, description="Filter orders created to date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="visit_from", in="query", required=false, description="Filter by visit datetime from date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="visit_to", in="query", required=false, description="Filter by visit datetime to date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="search", in="query", required=false, description="Search by order ID, client name or national ID", @OA\Schema(type="string")),
      *     @OA\Response(
      *         response=200,
@@ -495,6 +497,14 @@ class OrderController extends Controller
         }
         if ($request->has('date_to') && $request->query('date_to')) {
             $query->whereDate('created_at', '<=', $request->query('date_to'));
+        }
+
+        // Filter by visit_datetime range
+        if ($request->has('visit_from') && $request->query('visit_from')) {
+            $query->whereDate('visit_datetime', '>=', $request->query('visit_from'));
+        }
+        if ($request->has('visit_to') && $request->query('visit_to')) {
+            $query->whereDate('visit_datetime', '<=', $request->query('visit_to'));
         }
 
         // Search by order ID or client name
