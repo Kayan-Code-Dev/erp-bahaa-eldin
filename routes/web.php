@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
  * )
  */
 Route::get('/', function () {
-    return view('welcome');
+    return "ss";
 });
 
 // Provide a named `login` route so unauthenticated redirects (if any) resolve.

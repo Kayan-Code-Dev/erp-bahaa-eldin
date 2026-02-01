@@ -25,6 +25,9 @@ jobs:
           script: |
             cd /var/www/erp-bahaa-eldin
 
+            # Fix git ownership issue
+            git config --global --add safe.directory /var/www/erp-bahaa-eldin
+
             # Force update to match GitHub
             git fetch origin
             git reset --hard origin/main
@@ -34,19 +37,15 @@ jobs:
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
             # Run Laravel optimizations
-            php artisan config:cache
+            php artisan config:clear
             php artisan route:cache
             php artisan view:cache
-            php artisan event:cache
 
             # Run migrations
             php artisan migrate --force
 
             # Restart queue workers
             php artisan queue:restart
-
-            # Clear and rebuild caches
-            php artisan optimize
 
             # Fix permissions
             chown -R nginx:nginx /var/www/erp-bahaa-eldin
