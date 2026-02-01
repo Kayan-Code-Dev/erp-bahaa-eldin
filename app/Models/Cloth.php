@@ -47,6 +47,9 @@ class Cloth extends Model
                     ->withPivot([
                         'price',
                         'type',
+                        'quantity',
+                        'paid',      // المبلغ المدفوع
+                        'remaining', // المبلغ المتبقي
                         'days_of_rent',
                         'occasion_datetime',
                         'delivery_date',
@@ -62,6 +65,16 @@ class Cloth extends Model
                         'factory_expected_delivery_date',
                         'factory_delivered_at',
                         'factory_notes',
+                        // Measurements (مقاسات)
+                        'sleeve_length',
+                        'forearm',
+                        'shoulder_width',
+                        'cuffs',
+                        'waist',
+                        'chest_length',
+                        'total_length',
+                        'hinch',
+                        'dress_size',
                     ])
                     ->withTimestamps();
     }

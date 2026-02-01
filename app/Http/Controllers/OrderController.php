@@ -19,6 +19,8 @@ use App\Services\ClothHistoryService;
 use App\Services\OrderHistoryService;
 use App\Services\NotificationService;
 use App\Services\TransactionService;
+use App\Services\OrderService;
+use App\Http\Requests\StoreOrderRequest;
 use App\Models\TailoringStageLog;
 use App\Rules\MySqlDateTime;
 use App\Http\Controllers\Traits\FiltersByEntityAccess;
@@ -160,44 +162,56 @@ class OrderController extends Controller
      */
     private function flattenItemsPivot($items)
     {
+        $flattenCloth = function ($cloth) {
+            if ($cloth->pivot) {
+                // Basic fields
+                $cloth->price = $cloth->pivot->price ?? null;
+                $cloth->type = $cloth->pivot->type ?? null;
+                $cloth->quantity = $cloth->pivot->quantity ?? 1;
+                $cloth->item_paid = $cloth->pivot->paid ?? 0;
+                $cloth->item_remaining = $cloth->pivot->remaining ?? 0;
+                $cloth->days_of_rent = $cloth->pivot->days_of_rent ?? null;
+                $cloth->occasion_datetime = $cloth->pivot->occasion_datetime ?? null;
+                $cloth->delivery_date = $cloth->pivot->delivery_date ?? null;
+                $cloth->status = $cloth->pivot->status ?? null;
+                $cloth->notes = $cloth->pivot->notes ?? null;
+                $cloth->discount_type = $cloth->pivot->discount_type ?? null;
+                $cloth->discount_value = $cloth->pivot->discount_value ?? null;
+                $cloth->returnable = $cloth->pivot->returnable ?? null;
+                // Factory fields
+                $cloth->factory_status = $cloth->pivot->factory_status ?? null;
+                $cloth->factory_rejection_reason = $cloth->pivot->factory_rejection_reason ?? null;
+                $cloth->factory_accepted_at = $cloth->pivot->factory_accepted_at ?? null;
+                $cloth->factory_rejected_at = $cloth->pivot->factory_rejected_at ?? null;
+                $cloth->factory_expected_delivery_date = $cloth->pivot->factory_expected_delivery_date ?? null;
+                $cloth->factory_delivered_at = $cloth->pivot->factory_delivered_at ?? null;
+                $cloth->factory_notes = $cloth->pivot->factory_notes ?? null;
+                // Measurements (مقاسات)
+                $cloth->sleeve_length = $cloth->pivot->sleeve_length ?? null;
+                $cloth->forearm = $cloth->pivot->forearm ?? null;
+                $cloth->shoulder_width = $cloth->pivot->shoulder_width ?? null;
+                $cloth->cuffs = $cloth->pivot->cuffs ?? null;
+                $cloth->waist = $cloth->pivot->waist ?? null;
+                $cloth->chest_length = $cloth->pivot->chest_length ?? null;
+                $cloth->total_length = $cloth->pivot->total_length ?? null;
+                $cloth->hinch = $cloth->pivot->hinch ?? null;
+                $cloth->dress_size = $cloth->pivot->dress_size ?? null;
+                unset($cloth->pivot);
+            }
+            return $cloth;
+        };
+
         if ($items instanceof \Illuminate\Pagination\LengthAwarePaginator) {
-            $items->getCollection()->transform(function ($item) {
+            $items->getCollection()->transform(function ($item) use ($flattenCloth) {
                 if ($item->items) {
-                    $item->items->transform(function ($cloth) {
-                        if ($cloth->pivot) {
-                            $cloth->price = $cloth->pivot->price ?? null;
-                            $cloth->type = $cloth->pivot->type ?? null;
-                            $cloth->days_of_rent = $cloth->pivot->days_of_rent ?? null;
-                        $cloth->occasion_datetime = $cloth->pivot->occasion_datetime ?? null;
-                        $cloth->delivery_date = $cloth->pivot->delivery_date ?? null;
-                        $cloth->status = $cloth->pivot->status ?? null;
-                        $cloth->returnable = $cloth->pivot->returnable ?? null;
-                        unset($cloth->pivot);
-                        }
-                        return $cloth;
-                    });
+                    $item->items->transform($flattenCloth);
                 }
                 return $item;
             });
         } else {
             // Single item
             if ($items->items) {
-                $items->items->transform(function ($cloth) {
-                    if ($cloth->pivot) {
-                        $cloth->price = $cloth->pivot->price ?? null;
-                        $cloth->type = $cloth->pivot->type ?? null;
-                        $cloth->days_of_rent = $cloth->pivot->days_of_rent ?? null;
-                        $cloth->occasion_datetime = $cloth->pivot->occasion_datetime ?? null;
-                        $cloth->delivery_date = $cloth->pivot->delivery_date ?? null;
-                        $cloth->status = $cloth->pivot->status ?? null;
-                        $cloth->notes = $cloth->pivot->notes ?? null;
-                        $cloth->discount_type = $cloth->pivot->discount_type ?? null;
-                        $cloth->discount_value = $cloth->pivot->discount_value ?? null;
-                        $cloth->returnable = $cloth->pivot->returnable ?? null;
-                        unset($cloth->pivot);
-                    }
-                    return $cloth;
-                });
+                $items->items->transform($flattenCloth);
             }
         }
         return $items;
@@ -598,31 +612,14 @@ class OrderController extends Controller
      *     @OA\Response(response=422, description="Validation error")
      * )
      */
-    public function store(Request $request)
+    public function store(StoreOrderRequest $request)
     {
-        $data = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'entity_type' => 'required|string|in:branch,workshop,factory',
-            'entity_id' => 'required|integer',
-            'paid' => 'nullable|numeric',
-            'visit_datetime' => ['nullable', new MySqlDateTime()],
-            'order_notes' => 'nullable|string',
-            'discount_type' => 'nullable|string|in:percentage,fixed',
-            'discount_value' => 'required_with:discount_type|nullable|numeric|gt:0',
-            'items' => 'required|array',
-            'items.*.cloth_id' => 'required|integer|exists:clothes,id',
-            'items.*.price' => 'required|numeric',
-            'items.*.type' => 'required|string|in:buy,rent,tailoring',
-            'items.*.days_of_rent' => 'required_if:items.*.type,rent|nullable|integer',
-            'items.*.occasion_datetime' => ['required_if:items.*.type,rent', 'nullable', new MySqlDateTime()],
-            'items.*.delivery_date' => 'required_if:items.*.type,rent|nullable|date|after_or_equal:today',
-            'items.*.notes' => 'nullable|string',
-            'items.*.discount_type' => 'nullable|string|in:percentage,fixed',
-            'items.*.discount_value' => 'required_with:items.*.discount_type|nullable|numeric|gt:0',
-        ]);
+        $data = $request->validated();
+
+        $orderService = new OrderService();
 
         // Find inventory by entity_type and entity_id
-        $inventory = $this->findInventoryByEntity($data['entity_type'], $data['entity_id']);
+        $inventory = $orderService->findInventoryByEntity($data['entity_type'], $data['entity_id']);
 
         if (!$inventory) {
             return response()->json([
@@ -639,168 +636,24 @@ class OrderController extends Controller
             return $this->entityAccessDenied($data['entity_type'], $data['entity_id']);
         }
 
-        // Validate buy order constraints: buy orders must have exactly 1 item of type 'buy'
-        $buyItems = collect($data['items'])->where('type', 'buy');
-        if ($buyItems->isNotEmpty()) {
-            if (count($data['items']) > 1) {
-                return response()->json([
-                    'message' => 'Buy orders must have exactly 1 item. Cannot mix buy with other items.',
-                    'errors' => ['items' => ['A buy order can only contain a single buy item. No other items (buy, rent, or tailoring) are allowed.']]
-                ], 422);
-            }
-        }
-
-        // Calculate total_price from items with discounts
-        $subtotal = 0;
-        foreach ($data['items'] as $item) {
-            $itemPrice = $item['price'];
-            $itemDiscountType = $item['discount_type'] ?? null;
-            $itemDiscountValue = $item['discount_value'] ?? 0;
-
-            if ($itemDiscountType === 'percentage') {
-                $itemPrice = $itemPrice * (1 - $itemDiscountValue / 100);
-            } elseif ($itemDiscountType === 'fixed') {
-                $itemPrice = max(0, $itemPrice - $itemDiscountValue);
-            }
-            $subtotal += $itemPrice;
-        }
-
-        // Apply order-level discount
-        $orderDiscountType = $data['discount_type'] ?? null;
-        $orderDiscountValue = $data['discount_value'] ?? 0;
-        $totalPrice = $subtotal;
-
-        if ($orderDiscountType === 'percentage') {
-            $totalPrice = $subtotal * (1 - $orderDiscountValue / 100);
-        } elseif ($orderDiscountType === 'fixed') {
-            $totalPrice = max(0, $subtotal - $orderDiscountValue);
-        }
-
-        $paid = $data['paid'] ?? 0;
-
-        $order = Order::create([
-            'client_id' => $data['client_id'],
-            'inventory_id' => $inventory->id,
-            'total_price' => $totalPrice,
-            'status' => 'created', // Auto-set status
-            'paid' => $paid,
-            'remaining' => $totalPrice - $paid, // Calculate remaining (fees will be added later if needed)
-            'visit_datetime' => $data['visit_datetime'] ?? null,
-            'order_notes' => $data['order_notes'] ?? null,
-            'discount_type' => $orderDiscountType,
-            'discount_value' => $orderDiscountValue,
-        ]);
-
         $user = $request->user();
-        $orderHistoryService = new OrderHistoryService();
-        $orderHistoryService->logCreated($order, $user);
+        $result = $orderService->store($data, $inventory, $user);
 
-        // Auto-create payment record if paid > 0
-        if ($paid > 0) {
-            $payment = \App\Models\Payment::create([
-                'order_id' => $order->id,
-                'amount' => $paid,
-                'status' => 'paid',
-                'payment_type' => 'initial',
-                'payment_date' => now(),
-                'created_by' => $user?->id,
-            ]);
-            // Recalculate order payments and status
+        if ($result['errors']) {
+            return response()->json([
+                'message' => $result['errors']['message'],
+                'errors' => $result['errors']['details']
+            ], 422);
+        }
+
+        $order = $result['order'];
+
+        // Recalculate payments if order has paid amount
+        if ($order->paid > 0) {
             $this->recalculateOrderPayments($order);
-            $orderHistoryService->logPaymentAdded($order, $payment->id, $paid, 'initial', $user);
-        } else {
-            // Recalculate remaining (fees do not affect remaining, they are tracked separately)
-            $order->refresh();
-            $order->remaining = max(0, $order->total_price - $order->paid);
-            $order->save();
-        }
-        $historyService = new ClothHistoryService();
-
-        // attach items pivot if provided
-        if (isset($data['items'])) {
-            foreach ($data['items'] as $index => $row) {
-                // Find cloth by id
-                $cloth = Cloth::find($row['cloth_id']);
-
-                if (!$cloth) {
-                    return response()->json([
-                        'message' => 'Cloth not found',
-                        'errors' => ["items.{$index}.cloth_id" => ['Cloth with id ' . $row['cloth_id'] . ' does not exist']]
-                    ], 422);
-                }
-
-                // Validate cloth is in the order's inventory
-                $clothInInventory = $inventory->clothes()->where('clothes.id', $cloth->id)->first();
-                if (!$clothInInventory) {
-                    return response()->json([
-                        'message' => 'Cloth not in inventory',
-                        'errors' => ["items.{$index}.cloth_id" => ['Cloth ' . $cloth->code . ' is not in the order\'s inventory']]
-                    ], 422);
-                }
-
-                // Check rental availability for rent items
-                if ($row['type'] === 'rent' && isset($row['delivery_date']) && isset($row['days_of_rent'])) {
-                    $availability = $this->checkRentalAvailability(
-                        $cloth->id,
-                        $row['delivery_date'],
-                        $row['days_of_rent']
-                    );
-                    if (!$availability['available']) {
-                        return response()->json([
-                            'message' => 'Cloth is not available for rent on the requested dates',
-                            'errors' => [
-                                "items.{$index}.delivery_date" => [
-                                    'Cloth is not available for rent. Conflicts: ' . implode(', ', $availability['conflicts'])
-                                ]
-                            ]
-                        ], 422);
-                    }
-                }
-
-                // For buy items, check if cloth has pending rent reservations
-                if ($row['type'] === 'buy') {
-                    $hasPendingRents = Rent::where('cloth_id', $cloth->id)
-                        ->where('status', '!=', 'canceled')
-                        ->where('return_date', '>=', today())
-                        ->exists();
-                    
-                    if ($hasPendingRents) {
-                        return response()->json([
-                            'message' => 'Cannot sell cloth with pending rent reservations',
-                            'errors' => ["items.{$index}.cloth_id" => ['Cloth ' . $cloth->code . ' has pending rent reservations and cannot be sold']]
-                        ], 422);
-                    }
-
-                    // Also check if cloth is already sold
-                    if ($cloth->status === 'sold') {
-                        return response()->json([
-                            'message' => 'Cannot sell cloth that is already sold',
-                            'errors' => ["items.{$index}.cloth_id" => ['Cloth ' . $cloth->code . ' is already sold']]
-                        ], 422);
-                    }
-                }
-
-                $pivot = [
-                    'price' => $row['price'],
-                    'type' => $row['type'],
-                    'days_of_rent' => ($row['type'] === 'rent') ? ($row['days_of_rent'] ?? 0) : null,
-                    'occasion_datetime' => ($row['type'] === 'rent') ? ($row['occasion_datetime'] ?? null) : null,
-                    'delivery_date' => ($row['type'] === 'rent') ? ($row['delivery_date'] ?? null) : null,
-                    'status' => 'created', // Auto-set from order status
-                    'notes' => $row['notes'] ?? null,
-                    'discount_type' => $row['discount_type'] ?? null,
-                    'discount_value' => $row['discount_value'] ?? null,
-                    'returnable' => ($row['type'] === 'rent') ? true : false, // Only rent items are returnable
-                ];
-                $order->items()->attach($cloth->id, $pivot);
-
-                // Create history record
-                $historyService->recordOrdered($cloth, $order, $user);
-                $orderHistoryService->logItemAdded($order, $cloth->id, $cloth->code, $user);
-            }
         }
 
-        $order = $order->load(['client.address.city.country','inventory.inventoriable','items']);
+        $order = $order->load(['client.address.city.country', 'inventory.inventoriable', 'items']);
         $order = $this->flattenItemsPivot($order);
         $order = $this->flattenOrderAddresses($order);
         $order = $this->transformOrderResponse($order);
@@ -1085,7 +938,7 @@ class OrderController extends Controller
                         ->where('status', '!=', 'canceled')
                         ->where('return_date', '>=', today())
                         ->exists();
-                    
+
                     if ($hasPendingRents) {
                         return response()->json([
                             'message' => 'Cannot sell cloth with pending rent reservations',
@@ -2662,7 +2515,7 @@ class OrderController extends Controller
         }
 
         $entity = $inventory->inventoriable;
-        
+
         // Only branches have cashboxes
         if (!($entity instanceof Branch)) {
             return;

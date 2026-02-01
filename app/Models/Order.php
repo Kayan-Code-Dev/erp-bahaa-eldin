@@ -154,6 +154,9 @@ class Order extends Model
                     ->withPivot([
                         'price',
                         'type',
+                        'quantity',
+                        'paid',      // المبلغ المدفوع
+                        'remaining', // المبلغ المتبقي
                         'days_of_rent',
                         'occasion_datetime',
                         'delivery_date',
@@ -169,6 +172,16 @@ class Order extends Model
                         'factory_expected_delivery_date',
                         'factory_delivered_at',
                         'factory_notes',
+                        // Measurements (مقاسات)
+                        'sleeve_length',
+                        'forearm',
+                        'shoulder_width',
+                        'cuffs',
+                        'waist',
+                        'chest_length',
+                        'total_length',
+                        'hinch',
+                        'dress_size',
                     ])
                     ->withTimestamps();
     }
@@ -240,7 +253,7 @@ class Order extends Model
         if (!$this->tailoring_stage) {
             return null;
         }
-        
+
         $stages = self::getTailoringStages();
         return $stages[$this->tailoring_stage] ?? $this->tailoring_stage;
     }
@@ -269,7 +282,7 @@ class Order extends Model
     public function updateTailoringStage(string $newStage, User $user, ?string $notes = null, ?array $metadata = null): bool
     {
         $oldStage = $this->tailoring_stage;
-        
+
         // Create stage log
         TailoringStageLog::create([
             'order_id' => $this->id,
@@ -303,11 +316,11 @@ class Order extends Model
     public function assignFactory(Factory $factory, ?int $expectedDays = null): bool
     {
         $this->assigned_factory_id = $factory->id;
-        
+
         if ($expectedDays) {
             $this->expected_completion_date = today()->addDays($expectedDays);
         }
-        
+
         return $this->save();
     }
 
