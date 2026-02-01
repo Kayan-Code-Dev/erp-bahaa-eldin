@@ -17,5 +17,13 @@ class Supplier extends Model
     {
         return $this->hasMany(SupplierOrder::class);
     }
+
+    /**
+     * Alias for orders relationship
+     */
+    public function supplierOrders()
+    {
+        return $this->hasMany(SupplierOrder::class);
+    }
 }
 
