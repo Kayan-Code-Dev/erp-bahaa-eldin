@@ -179,6 +179,8 @@ class SupplierOrderService
                 'subcategory_id' => $data['subcategory_id'] ?? null,
                 'branch_id' => $data['branch_id'] ?? null,
                 'order_number' => $data['order_number'],
+                'type' => $data['type'] ?? null,
+                'model_id' => $data['model_id'] ?? null,
                 'order_date' => $data['order_date'],
                 'total_amount' => $data['total_amount'] ?? 0,
                 'payment_amount' => $data['payment_amount'] ?? 0,

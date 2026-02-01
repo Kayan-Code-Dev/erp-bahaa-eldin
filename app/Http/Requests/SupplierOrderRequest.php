@@ -34,6 +34,8 @@ class SupplierOrderRequest extends FormRequest
                 'max:50',
                 Rule::unique('supplier_orders', 'order_number')->ignore($orderId),
             ],
+            'type' => ['nullable', 'string', 'max:100'],
+            'model_id' => ['nullable', 'exists:cloth_types,id'],
             'order_date' => ['required', 'date'],
             'status' => ['sometimes', 'string', Rule::in(array_keys(SupplierOrder::getStatuses()))],
             'total_amount' => ['nullable', 'numeric', 'min:0'],

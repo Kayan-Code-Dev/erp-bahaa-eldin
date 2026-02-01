@@ -44,6 +44,14 @@ class SupplierOrderResource extends JsonResource
                 ];
             }),
             'order_number' => $this->order_number,
+            'type' => $this->type,
+            'model_id' => $this->model_id,
+            'model' => $this->whenLoaded('model', function () {
+                return [
+                    'id' => $this->model->id,
+                    'name' => $this->model->name,
+                ];
+            }),
             'order_date' => $this->order_date?->format('Y-m-d'),
             'status' => $this->status,
             'total_amount' => $this->total_amount,

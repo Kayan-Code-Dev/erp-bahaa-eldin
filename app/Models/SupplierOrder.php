@@ -17,6 +17,8 @@ class SupplierOrder extends Model
         'subcategory_id',
         'branch_id',
         'order_number',
+        'type',
+        'model_id',
         'order_date',
         'status',
         'total_amount',
@@ -68,6 +70,14 @@ class SupplierOrder extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Model (ClothType) relationship
+     */
+    public function model()
+    {
+        return $this->belongsTo(ClothType::class, 'model_id');
     }
 
     /**

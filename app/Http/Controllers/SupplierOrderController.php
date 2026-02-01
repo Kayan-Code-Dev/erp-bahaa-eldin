@@ -105,6 +105,8 @@ class SupplierOrderController extends Controller
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'branch_id' => 'nullable|exists:branches,id',
             'order_number' => 'nullable|string|max:50',
+            'type' => 'nullable|string|max:100',
+            'model_id' => 'nullable|exists:cloth_types,id',
             'order_date' => 'required|date',
             'total_amount' => 'nullable|numeric|min:0',
             'payment_amount' => 'nullable|numeric|min:0',
