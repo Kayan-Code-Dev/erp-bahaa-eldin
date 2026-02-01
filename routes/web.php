@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
 Route::get('/', function () {
-    return response()->json(['status' => 'ok', 'message' => 'ERP majd Eldin API']);
+    return response()->json(['status' => 'ok', 'message' => 'ERP Bahaa Eldin API']);
 });
 
 // Provide a named `login` route so unauthenticated redirects (if any) resolve.
