@@ -21,8 +21,34 @@ class StoreOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Order fields (paid is calculated from items, not sent directly)
-            'client_id' => 'required|exists:clients,id',
+            // Client selection: existing or new
+            'existing_client' => 'required|boolean',
+
+            // If existing client, require client_id
+            'client_id' => 'required_if:existing_client,true|nullable|exists:clients,id',
+
+            // If new client, require client data
+            'client' => 'required_if:existing_client,false|nullable|array',
+            'client.name' => 'required_if:existing_client,false|nullable|string|max:255',
+            'client.national_id' => 'required_if:existing_client,false|nullable|string|digits:14|unique:clients,national_id',
+            'client.date_of_birth' => 'nullable|date',
+            'client.source' => 'nullable|string',
+            'client.address' => 'required_if:existing_client,false|nullable|array',
+            'client.address.city_id' => 'required_if:existing_client,false|nullable|exists:cities,id',
+            'client.address.address' => 'required_if:existing_client,false|nullable|string|max:500',
+            'client.phones' => 'required_if:existing_client,false|nullable|array|min:1',
+            'client.phones.*.phone' => 'required_with:client.phones|string',
+            'client.phones.*.type' => 'nullable|string|in:mobile,landline,whatsapp',
+            // Client measurements (optional)
+            'client.breast_size' => 'nullable|string|max:20',
+            'client.waist_size' => 'nullable|string|max:20',
+            'client.sleeve_size' => 'nullable|string|max:20',
+            'client.hip_size' => 'nullable|string|max:20',
+            'client.shoulder_size' => 'nullable|string|max:20',
+            'client.length_size' => 'nullable|string|max:20',
+            'client.measurement_notes' => 'nullable|string|max:1000',
+
+            // Order fields
             'entity_type' => 'required|string|in:branch,workshop,factory',
             'entity_id' => 'required|integer',
             'visit_datetime' => ['nullable', new MySqlDateTime()],
@@ -63,7 +89,14 @@ class StoreOrderRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'client_id' => 'العميل',
+            'existing_client' => 'عميل موجود',
+            'client_id' => 'معرف العميل',
+            'client.name' => 'اسم العميل',
+            'client.national_id' => 'الرقم القومي',
+            'client.date_of_birth' => 'تاريخ الميلاد',
+            'client.address.city_id' => 'المدينة',
+            'client.address.address' => 'العنوان',
+            'client.phones' => 'أرقام الهاتف',
             'entity_type' => 'نوع الكيان',
             'entity_id' => 'معرف الكيان',
             'visit_datetime' => 'تاريخ الزيارة',
@@ -98,8 +131,20 @@ class StoreOrderRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'client_id.required' => 'العميل مطلوب',
+            'existing_client.required' => 'يجب تحديد إذا كان العميل موجود أم جديد',
+            'existing_client.boolean' => 'قيمة عميل موجود يجب أن تكون true أو false',
+            'client_id.required_if' => 'معرف العميل مطلوب عند اختيار عميل موجود',
             'client_id.exists' => 'العميل غير موجود',
+            'client.required_if' => 'بيانات العميل مطلوبة عند إنشاء عميل جديد',
+            'client.name.required_if' => 'اسم العميل مطلوب',
+            'client.national_id.required_if' => 'الرقم القومي مطلوب',
+            'client.national_id.digits' => 'الرقم القومي يجب أن يكون 14 رقم',
+            'client.national_id.unique' => 'الرقم القومي مستخدم بالفعل',
+            'client.address.required_if' => 'العنوان مطلوب',
+            'client.address.city_id.required_if' => 'المدينة مطلوبة',
+            'client.address.address.required_if' => 'العنوان مطلوب',
+            'client.phones.required_if' => 'رقم هاتف واحد على الأقل مطلوب',
+            'client.phones.min' => 'رقم هاتف واحد على الأقل مطلوب',
             'entity_type.required' => 'نوع الكيان مطلوب',
             'entity_type.in' => 'نوع الكيان يجب أن يكون branch أو workshop أو factory',
             'entity_id.required' => 'معرف الكيان مطلوب',

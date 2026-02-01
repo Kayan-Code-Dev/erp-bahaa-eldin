@@ -15,6 +15,9 @@ use App\Models\Rent;
 use App\Models\Branch;
 use App\Models\Workshop;
 use App\Models\Factory;
+use App\Models\Client;
+use App\Models\Address;
+use App\Models\Phone;
 use App\Services\ClothHistoryService;
 use App\Services\OrderHistoryService;
 use App\Services\NotificationService;
@@ -635,6 +638,78 @@ class OrderController extends Controller
         if (!$this->canAccessInventory($request, $inventory->id)) {
             return $this->entityAccessDenied($data['entity_type'], $data['entity_id']);
         }
+
+        // Handle client: existing or new
+        if ($data['existing_client']) {
+            // Use existing client
+            $clientId = $data['client_id'];
+        } else {
+            // Create new client
+            $clientData = $data['client'];
+
+            // Validate phone uniqueness
+            $phoneNumbers = collect($clientData['phones'])->pluck('phone');
+            if ($phoneNumbers->count() !== $phoneNumbers->unique()->count()) {
+                return response()->json([
+                    'message' => 'بيانات غير صالحة',
+                    'errors' => ['client.phones' => ['أرقام الهاتف مكررة في نفس الطلب']]
+                ], 422);
+            }
+
+            // Check phone uniqueness globally
+            $existingPhones = Phone::whereIn('phone', $phoneNumbers->toArray())->pluck('phone')->toArray();
+            if (!empty($existingPhones)) {
+                return response()->json([
+                    'message' => 'بيانات غير صالحة',
+                    'errors' => ['client.phones' => ['أرقام الهاتف موجودة بالفعل: ' . implode(', ', $existingPhones)]]
+                ], 422);
+            }
+
+            // Create client with address and phones
+            $address = Address::create([
+                'city_id' => $clientData['address']['city_id'],
+                'street' => $clientData['address']['address'],
+                'building' => '',
+                'notes' => null,
+            ]);
+
+            // Prepare client data
+            $newClientData = [
+                'name' => $clientData['name'],
+                'national_id' => $clientData['national_id'],
+                'date_of_birth' => $clientData['date_of_birth'] ?? null,
+                'source' => $clientData['source'] ?? null,
+                'address_id' => $address->id,
+                'breast_size' => $clientData['breast_size'] ?? null,
+                'waist_size' => $clientData['waist_size'] ?? null,
+                'sleeve_size' => $clientData['sleeve_size'] ?? null,
+                'hip_size' => $clientData['hip_size'] ?? null,
+                'shoulder_size' => $clientData['shoulder_size'] ?? null,
+                'length_size' => $clientData['length_size'] ?? null,
+                'measurement_notes' => $clientData['measurement_notes'] ?? null,
+            ];
+
+            // Auto-set last_measurement_date if measurements provided
+            $measurementFields = ['breast_size', 'waist_size', 'sleeve_size', 'hip_size', 'shoulder_size', 'length_size'];
+            if (collect($measurementFields)->some(fn($field) => !empty($newClientData[$field]))) {
+                $newClientData['last_measurement_date'] = now()->toDateString();
+            }
+
+            $client = Client::create($newClientData);
+
+            // Create phones
+            foreach ($clientData['phones'] as $phoneData) {
+                $client->phones()->create([
+                    'phone' => $phoneData['phone'],
+                    'type' => $phoneData['type'] ?? null,
+                ]);
+            }
+
+            $clientId = $client->id;
+        }
+
+        // Set client_id in data for order creation
+        $data['client_id'] = $clientId;
 
         $user = $request->user();
         $result = $orderService->store($data, $inventory, $user);
