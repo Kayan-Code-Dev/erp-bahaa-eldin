@@ -53,25 +53,26 @@ class OrderUpdateService
     }
 
     /**
-     * Update visit datetime
+     * Update delivery date
+     * تحديث تاريخ التسليم
      *
      * @param Order $order
-     * @param string|null $visitDatetime
+     * @param string|null $deliveryDate
      * @param mixed $user
      * @return void
      */
-    public function updateVisitDatetime(Order $order, ?string $visitDatetime, $user): void
+    public function updateDeliveryDate(Order $order, ?string $deliveryDate, $user): void
     {
-        $oldVisitDatetime = $order->delivery_date;
-        $order->delivery_date = $visitDatetime;
+        $oldDeliveryDate = $order->delivery_date;
+        $order->delivery_date = $deliveryDate;
         $order->save();
 
-        if ($oldVisitDatetime != $visitDatetime) {
+        if ($oldDeliveryDate != $deliveryDate) {
             $this->orderHistoryService->logUpdated(
                 $order,
                 'delivery_date',
-                $oldVisitDatetime,
-                $visitDatetime,
+                $oldDeliveryDate,
+                $deliveryDate,
                 null,
                 $user
             );

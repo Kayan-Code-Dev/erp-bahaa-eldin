@@ -509,6 +509,12 @@ class OrderController extends Controller
         if ($request->has('visit_to') && $request->query('visit_to')) {
             $query->whereDate('visit_datetime', '<=', $request->query('visit_to'));
         }
+        if ($request->has('delivery_from') && $request->query('delivery_from')) {
+            $query->whereDate('delivery_date', '>=', $request->query('delivery_from'));
+        }
+        if ($request->has('delivery_from') && $request->query('delivery_to')) {
+            $query->whereDate('delivery_date', '<=', $request->query('delivery_to'));
+        }
 
         // Search by order ID or client name
         if ($request->has('search') && $request->query('search')) {

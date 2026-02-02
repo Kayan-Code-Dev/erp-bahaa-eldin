@@ -34,7 +34,7 @@ class UpdateOrderRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'visit_datetime' => 'تاريخ الزيارة',
+            'delivery_date' => 'تاريخ التسليم',
             'replace_items' => 'استبدال القطع',
             'replace_items.*.old_cloth_id' => 'معرف القطعة القديمة',
             'replace_items.*.new_cloth_id' => 'معرف القطعة الجديدة',
