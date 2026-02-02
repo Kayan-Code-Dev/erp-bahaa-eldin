@@ -25,9 +25,7 @@ use App\Services\TransactionService;
 use App\Services\OrderService;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderRequest;
-use App\Http\Requests\ReturnClothRequest;
 use App\Services\OrderUpdateService;
-use App\Services\ReturnClothService;
 use App\Models\TailoringStageLog;
 use App\Rules\MySqlDateTime;
 use App\Http\Controllers\Traits\FiltersByEntityAccess;
@@ -1810,34 +1808,127 @@ class OrderController extends Controller
      *     @OA\Response(response=422, description="Validation error or cloth cannot be returned")
      * )
      */
-    public function returnCloth(ReturnClothRequest $request, $orderId, $clothId)
+    public function returnCloth(Request $request, $orderId, $clothId)
     {
+        $request->validate([
+            'entity_type' => 'required|in:branch,workshop,factory',
+            'entity_id' => 'required|integer',
+            'note' => 'required|string',
+            'photos' => 'required|array|min:1|max:10',
+            'photos.*' => 'required|image|mimes:jpeg,png,gif,webp,bmp|max:5120',
+        ]);
+
         $order = Order::findOrFail($orderId);
         $cloth = Cloth::findOrFail($clothId);
 
-        $returnClothService = new ReturnClothService();
+        // Check if cloth belongs to the order and is rent type and returnable
+        $clothOrder = DB::table('cloth_order')
+            ->where('order_id', $order->id)
+            ->where('cloth_id', $cloth->id)
+            ->where('type', 'rent')
+            ->where('returnable', true)
+            ->first();
 
-        // Process the return
-        $result = $returnClothService->processReturn(
-            $order,
-            $cloth,
-            [
-                'entity_type' => $request->entity_type,
-                'entity_id' => $request->entity_id,
-                'note' => $request->note,
-                'photos' => $request->file('photos'),
-            ],
-            $request->user()
-        );
-
-        if (!$result['success']) {
-            return response()->json($result['error'], 422);
+        if (!$clothOrder) {
+            return response()->json([
+                'message' => 'Cloth is not part of this order as a rentable item or has already been returned'
+            ], 422);
         }
 
-        return response()->json([
-            'message' => 'تم إرجاع القطعة بنجاح',
-            'cloth' => $result['cloth'],
+        // Check order status - cannot return if order is finished or canceled
+        if (in_array($order->status, ['finished', 'canceled'])) {
+            return response()->json([
+                'message' => 'Cannot return cloth from order in current status'
+            ], 422);
+        }
+
+        // Validate destination entity
+        $entityClass = $this->getEntityClassFromType($request->entity_type);
+        $entity = $entityClass::findOrFail($request->entity_id);
+
+        // Get destination inventory - try relationship first, then query directly
+        $destinationInventory = null;
+        if (method_exists($entity, 'inventory')) {
+            $destinationInventory = $entity->inventory;
+        }
+
+        // If relationship doesn't return inventory, query directly
+        if (!$destinationInventory) {
+            $destinationInventory = Inventory::where('inventoriable_type', $entityClass)
+                ->where('inventoriable_id', $request->entity_id)
+                ->first();
+        }
+
+        // If still no inventory, create one
+        if (!$destinationInventory) {
+            $destinationInventory = $entity->inventory()->create(['name' => $entity->name . ' Inventory']);
+        }
+
+        // Handle photo uploads
+        $photos = $this->handleClothReturnPhotoUploads($request->file('photos'), $order->id, $cloth->id);
+
+        // Create cloth return photo records
+        foreach ($photos as $photoPath) {
+            ClothReturnPhoto::create([
+                'order_id' => $order->id,
+                'cloth_id' => $cloth->id,
+                'photo_path' => $photoPath,
+                'photo_type' => 'return_photo',
+            ]);
+        }
+
+        // Update cloth order record - mark as not returnable
+        DB::table('cloth_order')
+            ->where('order_id', $order->id)
+            ->where('cloth_id', $cloth->id)
+            ->update(['returnable' => false]);
+
+        // Update cloth status to repairing
+        $cloth->update(['status' => 'repairing']);
+
+        // Transfer cloth to destination inventory
+        // Use DB to ensure the transfer is immediate and persisted
+        DB::table('cloth_inventory')
+            ->where('cloth_id', $cloth->id)
+            ->delete();
+        DB::table('cloth_inventory')->insert([
+            'cloth_id' => $cloth->id,
+            'inventory_id' => $destinationInventory->id,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
+        // Clear relationship cache
+        $cloth->load('inventories');
+        $destinationInventory->load('clothes');
+
+        // Record history - we'll record returned action and entity transfer
+        $historyService = new ClothHistoryService();
+        $historyService->recordReturned($cloth, $order, $request->user());
+
+        return response()->json([
+            'message' => 'Cloth returned successfully',
+            'cloth' => $cloth->fresh(),
+        ]);
+    }
+
+    /**
+     * Handle cloth return photo uploads
+     */
+    private function handleClothReturnPhotoUploads($photos, $orderId, $clothId)
+    {
+        $uploadedPaths = [];
+
+        foreach ($photos as $photo) {
+            $timestamp = now()->format('Ymd_His');
+            $random = strtoupper(substr(md5(uniqid()), 0, 6));
+            $extension = $photo->getClientOriginalExtension();
+            $filename = "cloth-return_{$orderId}_{$clothId}_{$timestamp}_{$random}.{$extension}";
+
+            $path = $photo->storeAs('cloth-return-photos', $filename, 'local');
+            $uploadedPaths[] = $path;
+        }
+
+        return $uploadedPaths;
     }
 
 
