@@ -127,7 +127,7 @@ class ReturnClothService
             $extension = $photo->getClientOriginalExtension();
             $filename = "cloth-return_{$orderId}_{$clothId}_{$timestamp}_{$random}.{$extension}";
 
-            $path = $photo->storeAs('cloth-return-photos', $filename, 'private');
+            $path = $photo->storeAs('cloth-return-photos', $filename, 'local');
             $uploadedPaths[] = $path;
         }
 
