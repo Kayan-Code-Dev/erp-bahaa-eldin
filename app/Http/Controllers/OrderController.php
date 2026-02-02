@@ -24,6 +24,8 @@ use App\Services\NotificationService;
 use App\Services\TransactionService;
 use App\Services\OrderService;
 use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\UpdateOrderRequest;
+use App\Services\OrderUpdateService;
 use App\Models\TailoringStageLog;
 use App\Rules\MySqlDateTime;
 use App\Http\Controllers\Traits\FiltersByEntityAccess;
@@ -783,33 +785,20 @@ class OrderController extends Controller
     /**
      * @OA\Put(
      *     path="/api/v1/orders/{id}",
-     *     summary="Update an order. Note: Buy orders must have exactly 1 item of type 'buy' (no mixing). Fees are tracked separately and do not affect paid/remaining calculations.",
+     *     summary="Update an order - Only visit_datetime and cloth replacement allowed",
      *     tags={"Orders"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             @OA\Property(property="client_id", type="integer", nullable=true, example=1),
-     *             @OA\Property(property="entity_type", type="string", enum={"branch", "workshop", "factory"}, nullable=true, example="branch"),
-     *             @OA\Property(property="entity_id", type="integer", nullable=true, example=1),
-     *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
-     *             @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes"),
-     *             @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
-     *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
-     *             @OA\Property(property="items", type="array", nullable=true, @OA\Items(
-     *                 required={"cloth_id", "price", "type"},
-     *                 @OA\Property(property="cloth_id", type="integer", example=1),
-     *                 @OA\Property(property="price", type="number", format="float", example=100.00),
-     *                 @OA\Property(property="type", type="string", enum={"buy", "rent", "tailoring"}, example="rent"),
-     *                 @OA\Property(property="days_of_rent", type="integer", nullable=true, example=3),
-     *                 @OA\Property(property="occasion_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
-     *                 @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-25"),
- *                 @OA\Property(property="notes", type="string", nullable=true, example="Item notes"),
- *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
- *                 @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=5.00)
- *             ))
- *         )
+     *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25", description="تاريخ الزيارة"),
+     *             @OA\Property(property="replace_items", type="array", nullable=true, description="استبدال قطع الملابس", @OA\Items(
+     *                 required={"old_cloth_id", "new_cloth_id"},
+     *                 @OA\Property(property="old_cloth_id", type="integer", example=5, description="معرف القطعة القديمة (يجب أن تكون في الطلب)"),
+     *                 @OA\Property(property="new_cloth_id", type="integer", example=10, description="معرف القطعة الجديدة (يجب أن تكون في المخزن)")
+     *             ))
+     *         )
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -823,371 +812,47 @@ class OrderController extends Controller
      *             @OA\Property(property="paid", type="number", format="float", example=50.00),
      *             @OA\Property(property="remaining", type="number", format="float", example=50.00),
      *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
-     *             @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes"),
-     *             @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
-     *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
      *             @OA\Property(property="entity_type", type="string", enum={"branch", "workshop", "factory"}, example="branch"),
      *             @OA\Property(property="entity_id", type="integer", example=1)
      *         )
      *     ),
-     *     @OA\Response(response=404, description="Resource not found")
+     *     @OA\Response(response=404, description="Resource not found"),
+     *     @OA\Response(response=422, description="Validation error")
      * )
      */
-    public function update(Request $request, $id)
+    public function update(UpdateOrderRequest $request, $id)
     {
         $order = Order::findOrFail($id);
+        $orderUpdateService = new OrderUpdateService();
 
-        // Check if order has any sold items - cannot edit orders with sold items
-        $hasSoldItems = $order->items()->where('clothes.status', 'sold')->exists();
-        if ($hasSoldItems) {
-            return response()->json([
-                'message' => 'Cannot edit order with sold items',
-                'errors' => ['order' => ['This order contains sold items and cannot be modified.']]
-            ], 422);
+        // Validate order can be updated
+        $validation = $orderUpdateService->validateOrderCanBeUpdated($order);
+        if (!$validation['valid']) {
+            return response()->json($validation['error'], 422);
         }
 
-        $oldOrderData = $order->toArray();
+        $data = $request->validated();
         $user = $request->user();
-        $orderHistoryService = new OrderHistoryService();
 
-        $data = $request->validate([
-            'client_id' => 'sometimes|required|exists:clients,id',
-            'entity_type' => 'sometimes|required|string|in:branch,workshop,factory',
-            'entity_id' => 'sometimes|required|integer',
-            'visit_datetime' => ['nullable', new MySqlDateTime()],
-            'order_notes' => 'nullable|string',
-            'discount_type' => 'nullable|string|in:percentage,fixed',
-            'discount_value' => 'required_with:discount_type|nullable|numeric|gt:0',
-            'items' => 'nullable|array',
-            'items.*.cloth_id' => 'required_with:items|integer|exists:clothes,id',
-            'items.*.price' => 'required_with:items|numeric|min:0',
-            'items.*.quantity' => 'nullable|integer|min:1',
-            'items.*.paid' => 'nullable|numeric|min:0',
-            'items.*.type' => 'required_with:items|string|in:buy,rent,tailoring',
-            'items.*.days_of_rent' => 'required_if:items.*.type,rent|nullable|integer|min:1',
-            'items.*.occasion_datetime' => ['required_if:items.*.type,rent', 'nullable', new MySqlDateTime()],
-            'items.*.delivery_date' => 'required_if:items.*.type,rent|nullable|date|after_or_equal:today',
-            'items.*.notes' => 'nullable|string',
-            'items.*.discount_type' => 'nullable|string|in:percentage,fixed',
-            'items.*.discount_value' => 'required_with:items.*.discount_type|nullable|numeric|gt:0',
-            // Measurements (مقاسات)
-            'items.*.sleeve_length' => 'nullable|string|max:50',
-            'items.*.forearm' => 'nullable|string|max:50',
-            'items.*.shoulder_width' => 'nullable|string|max:50',
-            'items.*.cuffs' => 'nullable|string|max:50',
-            'items.*.waist' => 'nullable|string|max:50',
-            'items.*.chest_length' => 'nullable|string|max:50',
-            'items.*.total_length' => 'nullable|string|max:50',
-            'items.*.hinch' => 'nullable|string|max:50',
-            'items.*.dress_size' => 'nullable|string|max:50',
-        ]);
-
-        // Handle entity_type and entity_id if provided
-        if (isset($data['entity_type']) && isset($data['entity_id'])) {
-            $inventory = $this->findInventoryByEntity($data['entity_type'], $data['entity_id']);
-
-            if (!$inventory) {
-                return response()->json([
-                    'message' => 'Inventory not found',
-                    'errors' => [
-                        'entity_type' => ['Entity does not exist or does not have an inventory'],
-                        'entity_id' => ['Entity does not exist or does not have an inventory']
-                    ]
-                ], 422);
-            }
-
-            $data['inventory_id'] = $inventory->id;
+        // Update visit_datetime if provided
+        if (array_key_exists('visit_datetime', $data)) {
+            $orderUpdateService->updateVisitDatetime($order, $data['visit_datetime'], $user);
         }
 
-        // Validate buy order constraints if items are provided
-        if (isset($data['items'])) {
-            $buyItems = collect($data['items'])->where('type', 'buy');
-            if ($buyItems->isNotEmpty()) {
-                if (count($data['items']) > 1) {
-                    return response()->json([
-                        'message' => 'Buy orders must have exactly 1 item. Cannot mix buy with other items.',
-                        'errors' => ['items' => ['A buy order can only contain a single buy item. No other items (buy, rent, or tailoring) are allowed.']]
-                    ], 422);
-                }
+        // Handle cloth replacements
+        if (!empty($data['replace_items'])) {
+            $result = $orderUpdateService->replaceClothes($order, $data['replace_items'], $user);
+            if (!$result['success']) {
+                return response()->json($result['error'], 422);
             }
         }
 
-        // Calculate totals from items if items are provided
-        $calculatedTotalPaid = null;
-        if (isset($data['items'])) {
-            $itemsSubtotal = 0;
-            $totalPaid = 0;
-
-            foreach ($data['items'] as $item) {
-                // Calculate item total (price * quantity - item discount)
-                $quantity = $item['quantity'] ?? 1;
-                $itemPrice = $item['price'];
-                $itemDiscountType = $item['discount_type'] ?? null;
-                $itemDiscountValue = $item['discount_value'] ?? 0;
-
-                if ($itemDiscountType === 'percentage') {
-                    $itemPrice = $itemPrice * (1 - $itemDiscountValue / 100);
-                } elseif ($itemDiscountType === 'fixed') {
-                    $itemPrice = max(0, $itemPrice - $itemDiscountValue);
-                }
-                $itemTotal = $itemPrice * $quantity;
-                $itemsSubtotal += $itemTotal;
-
-                // Sum item paid amounts
-                $totalPaid += ($item['paid'] ?? 0);
-            }
-
-            // Apply order-level discount
-            $orderDiscountType = $data['discount_type'] ?? $order->discount_type ?? null;
-            $orderDiscountValue = $data['discount_value'] ?? $order->discount_value ?? 0;
-            $totalPrice = $itemsSubtotal;
-
-            if ($orderDiscountType === 'percentage') {
-                $totalPrice = $itemsSubtotal * (1 - $orderDiscountValue / 100);
-            } elseif ($orderDiscountType === 'fixed') {
-                $totalPrice = max(0, $itemsSubtotal - $orderDiscountValue);
-            }
-
-            $data['total_price'] = $totalPrice;
-            $data['paid'] = $totalPaid;
-            $data['remaining'] = max(0, $totalPrice - $totalPaid);
-            $calculatedTotalPaid = $totalPaid;
-        } elseif (isset($data['discount_type']) || isset($data['discount_value'])) {
-            // Recalculate total if only discount changed
-            $order->load('items');
-            $subtotal = $order->items->sum(function ($item) {
-                $price = $item->pivot->price;
-                $quantity = $item->pivot->quantity ?? 1;
-                $discountType = $item->pivot->discount_type ?? null;
-                $discountValue = $item->pivot->discount_value ?? 0;
-
-                if ($discountType === 'percentage') {
-                    return ($price * (1 - $discountValue / 100)) * $quantity;
-                } elseif ($discountType === 'fixed') {
-                    return max(0, $price - $discountValue) * $quantity;
-                }
-                return $price * $quantity;
-            });
-
-            $orderDiscountType = $data['discount_type'] ?? $order->discount_type ?? null;
-            $orderDiscountValue = $data['discount_value'] ?? $order->discount_value ?? 0;
-            $totalPrice = $subtotal;
-
-            if ($orderDiscountType === 'percentage') {
-                $totalPrice = $subtotal * (1 - $orderDiscountValue / 100);
-            } elseif ($orderDiscountType === 'fixed') {
-                $totalPrice = max(0, $subtotal - $orderDiscountValue);
-            }
-
-            $data['total_price'] = $totalPrice;
-            $data['remaining'] = max(0, $totalPrice - $order->paid);
-        }
-
-        // Status is auto-calculated, remove from update data (but keep paid and remaining)
-        $updateData = collect($data)->except(['items', 'entity_type', 'entity_id', 'status'])->toArray();
-
-        // Log field changes before update
-        foreach ($updateData as $field => $newValue) {
-            $oldValue = $oldOrderData[$field] ?? null;
-            if ($oldValue != $newValue) {
-                $orderHistoryService->logUpdated($order, $field, $oldValue, $newValue, null, $user);
-            }
-        }
-
-        $order->update($updateData);
-
-        // Auto-calculate status based on paid amount
-        $oldStatus = $order->status;
-        $this->recalculateOrderPayments($order);
-        $order->refresh();
-
-        // Log status change if it changed
-        if ($oldStatus != $order->status) {
-            $orderHistoryService->logStatusChanged($order, $oldStatus, $order->status, $user);
-        }
-
-        // Recalculate remaining (fees do not affect remaining, they are tracked separately)
-        $order->remaining = max(0, $order->total_price - $order->paid);
-        $order->save();
-
-        if (isset($data['items'])) {
-            // Get inventory to validate items are in it
-            $inventory = $order->fresh()->inventory;
-            $historyService = new ClothHistoryService();
-            $user = $request->user();
-
-            // Get old items to detect removals
-            $oldItemIds = $order->items->pluck('id')->toArray();
-            $newItemIds = collect($data['items'])->pluck('cloth_id')->toArray();
-            $removedItemIds = array_diff($oldItemIds, $newItemIds);
-
-            // Handle removed items - return clothes to ready_for_rent at their delivery_date
-            foreach ($removedItemIds as $removedId) {
-                $removedItem = $order->items->firstWhere('id', $removedId);
-                if ($removedItem && $removedItem->pivot) {
-                    $deliveryDate = $removedItem->pivot->delivery_date;
-
-                    // Log item removal
-                    $orderHistoryService->logItemRemoved($order, $removedItem->id, $removedItem->code, $user);
-
-                    if ($order->status === 'delivered' && $deliveryDate) {
-                        // Schedule return at delivery_date (for now, return immediately - can be enhanced with queues)
-                        // TODO: Implement scheduled task for future delivery_date returns
-                        $removedItem->status = 'ready_for_rent';
-                        $removedItem->save();
-                    } else {
-                        // Return immediately if order not delivered
-                        $removedItem->status = 'ready_for_rent';
-                        $removedItem->save();
-                    }
-
-                    // Update Rent records if exists
-                    $clothOrderId = DB::table('cloth_order')
-                        ->where('order_id', $order->id)
-                        ->where('cloth_id', $removedItem->id)
-                        ->value('id');
-
-                    if ($clothOrderId) {
-                        Rent::where('cloth_order_id', $clothOrderId)->update(['status' => 'canceled']);
-                    }
-                }
-            }
-
-            // sync with pivot data (replace existing)
-            $syncData = [];
-            foreach ($data['items'] as $index => $row) {
-                // Find cloth by id
-                $cloth = Cloth::find($row['cloth_id']);
-
-                if (!$cloth) {
-                    return response()->json([
-                        'message' => 'Cloth not found',
-                        'errors' => ["items.{$index}.cloth_id" => ['Cloth with id ' . $row['cloth_id'] . ' does not exist']]
-                    ], 422);
-                }
-
-                // Validate cloth is in the order's inventory
-                if ($inventory) {
-                    $clothInInventory = $inventory->clothes()->where('clothes.id', $cloth->id)->first();
-                    if (!$clothInInventory) {
-                        return response()->json([
-                            'message' => 'Cloth not in inventory',
-                            'errors' => ["items.{$index}.cloth_id" => ['Cloth ' . $cloth->code . ' is not in the order\'s inventory']]
-                        ], 422);
-                    }
-                }
-
-                // For buy items, check if cloth has pending rent reservations (only for new items)
-                $existingItem = $order->items()->where('clothes.id', $cloth->id)->first();
-                if ($row['type'] === 'buy' && !$existingItem) {
-                    $hasPendingRents = Rent::where('cloth_id', $cloth->id)
-                        ->where('status', '!=', 'canceled')
-                        ->where('return_date', '>=', today())
-                        ->exists();
-
-                    if ($hasPendingRents) {
-                        return response()->json([
-                            'message' => 'Cannot sell cloth with pending rent reservations',
-                            'errors' => ["items.{$index}.cloth_id" => ['Cloth ' . $cloth->code . ' has pending rent reservations and cannot be sold']]
-                        ], 422);
-                    }
-
-                    // Also check if cloth is already sold
-                    if ($cloth->status === 'sold') {
-                        return response()->json([
-                            'message' => 'Cannot sell cloth that is already sold',
-                            'errors' => ["items.{$index}.cloth_id" => ['Cloth ' . $cloth->code . ' is already sold']]
-                        ], 422);
-                    }
-                }
-
-                // Get existing pivot to preserve status if item already exists
-                $existingPivot = $order->items()->where('clothes.id', $cloth->id)->first();
-                $itemStatus = $existingPivot ? $existingPivot->pivot->status : $order->status;
-
-                // Get existing pivot to preserve returnable status if item already exists
-                $returnableValue = $existingPivot && $existingPivot->pivot
-                    ? $existingPivot->pivot->returnable
-                    : (($row['type'] === 'rent') ? true : false);
-
-                // Calculate item total and remaining
-                $quantity = $row['quantity'] ?? 1;
-                $itemPrice = $row['price'];
-                $itemDiscountType = $row['discount_type'] ?? null;
-                $itemDiscountValue = $row['discount_value'] ?? 0;
-
-                if ($itemDiscountType === 'percentage') {
-                    $itemPrice = $itemPrice * (1 - $itemDiscountValue / 100);
-                } elseif ($itemDiscountType === 'fixed') {
-                    $itemPrice = max(0, $itemPrice - $itemDiscountValue);
-                }
-                $itemTotal = $itemPrice * $quantity;
-                $itemPaid = $row['paid'] ?? 0;
-                $itemRemaining = max(0, $itemTotal - $itemPaid);
-
-                $syncData[$cloth->id] = [
-                    'price' => $row['price'],
-                    'type' => $row['type'],
-                    'quantity' => $quantity,
-                    'paid' => $itemPaid,
-                    'remaining' => $itemRemaining,
-                    'days_of_rent' => ($row['type'] === 'rent') ? ($row['days_of_rent'] ?? 0) : null,
-                    'occasion_datetime' => ($row['type'] === 'rent') ? ($row['occasion_datetime'] ?? null) : null,
-                    'delivery_date' => ($row['type'] === 'rent') ? ($row['delivery_date'] ?? null) : null,
-                    'status' => $itemStatus,
-                    'notes' => $row['notes'] ?? null,
-                    'discount_type' => $row['discount_type'] ?? null,
-                    'discount_value' => $row['discount_value'] ?? null,
-                    'returnable' => $returnableValue,
-                    // Measurements (مقاسات)
-                    'sleeve_length' => $row['sleeve_length'] ?? null,
-                    'forearm' => $row['forearm'] ?? null,
-                    'shoulder_width' => $row['shoulder_width'] ?? null,
-                    'cuffs' => $row['cuffs'] ?? null,
-                    'waist' => $row['waist'] ?? null,
-                    'chest_length' => $row['chest_length'] ?? null,
-                    'total_length' => $row['total_length'] ?? null,
-                    'hinch' => $row['hinch'] ?? null,
-                    'dress_size' => $row['dress_size'] ?? null,
-                ];
-
-                // Create history record if this is a new cloth in the order
-                $existingCloth = $order->items()->where('clothes.id', $cloth->id)->first();
-                if (!$existingCloth) {
-                    $historyService->recordOrdered($cloth, $order, $user);
-                    $orderHistoryService->logItemAdded($order, $cloth->id, $cloth->code, $user);
-                } else {
-                    // Log item updates if fields changed
-                    $oldPrice = $existingPivot->pivot->price ?? null;
-                    $oldType = $existingPivot->pivot->type ?? null;
-                    if ($oldPrice != $row['price']) {
-                        $orderHistoryService->logItemUpdated($order, $cloth->id, 'price', $oldPrice, $row['price'], $user);
-                    }
-                    if ($oldType != $row['type']) {
-                        $orderHistoryService->logItemUpdated($order, $cloth->id, 'type', $oldType, $row['type'], $user);
-                    }
-                }
-            }
-            $order->items()->sync($syncData);
-
-            // Recalculate order totals from items
-            $order->refresh();
-            $order->load('items');
-
-            // Sum paid from all items
-            $totalPaid = $order->items->sum(function ($item) {
-                return $item->pivot->paid ?? 0;
-            });
-
-            $order->paid = $totalPaid;
-            $order->remaining = max(0, $order->total_price - $totalPaid);
-            $order->save();
-        }
-
-        $order = $order->load(['client.address.city.country','inventory.inventoriable','items']);
+        // Load and transform response
+        $order = $order->fresh()->load(['client.address.city.country', 'inventory.inventoriable', 'items']);
         $order = $this->flattenItemsPivot($order);
         $order = $this->flattenOrderAddresses($order);
         $order = $this->transformOrderResponse($order);
+
         return response()->json($order);
     }
 
