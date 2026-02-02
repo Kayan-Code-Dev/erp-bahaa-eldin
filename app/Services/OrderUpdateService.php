@@ -62,14 +62,14 @@ class OrderUpdateService
      */
     public function updateVisitDatetime(Order $order, ?string $visitDatetime, $user): void
     {
-        $oldVisitDatetime = $order->visit_datetime;
-        $order->visit_datetime = $visitDatetime;
+        $oldVisitDatetime = $order->delivery_date;
+        $order->delivery_date = $visitDatetime;
         $order->save();
 
         if ($oldVisitDatetime != $visitDatetime) {
             $this->orderHistoryService->logUpdated(
                 $order,
-                'visit_datetime',
+                'delivery_date',
                 $oldVisitDatetime,
                 $visitDatetime,
                 null,

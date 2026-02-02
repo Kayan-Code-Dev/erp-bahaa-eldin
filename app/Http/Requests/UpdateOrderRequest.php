@@ -21,7 +21,7 @@ class UpdateOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'visit_datetime' => ['nullable', new MySqlDateTime()],
+            'delivery_date' => ['nullable', new MySqlDateTime()],
             'replace_items' => 'nullable|array',
             'replace_items.*.old_cloth_id' => 'required_with:replace_items|integer|exists:clothes,id',
             'replace_items.*.new_cloth_id' => 'required_with:replace_items|integer|exists:clothes,id',

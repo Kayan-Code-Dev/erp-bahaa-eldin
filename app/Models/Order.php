@@ -21,6 +21,7 @@ class Order extends Model
         'paid',
         'remaining',
         'visit_datetime',
+        'delivery_date',
         'order_notes',
         'discount_type',
         'discount_value',
@@ -37,6 +38,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'delivery_date' => 'date',
         'tailoring_stage_changed_at' => 'datetime',
         'expected_completion_date' => 'date',
         'actual_completion_date' => 'date',

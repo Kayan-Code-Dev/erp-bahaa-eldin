@@ -51,7 +51,8 @@ class StoreOrderRequest extends FormRequest
             // Order fields
             'entity_type' => 'required|string|in:branch,workshop,factory',
             'entity_id' => 'required|integer',
-            'visit_datetime' => ['nullable', new MySqlDateTime()],
+            'delivery_date' => ['nullable', new MySqlDateTime()],
+
             'order_notes' => 'nullable|string',
             'discount_type' => 'nullable|string|in:percentage,fixed', // خصم على مستوى الطلب
             'discount_value' => 'required_with:discount_type|nullable|numeric|gt:0',
@@ -99,7 +100,7 @@ class StoreOrderRequest extends FormRequest
             'client.phones' => 'أرقام الهاتف',
             'entity_type' => 'نوع الكيان',
             'entity_id' => 'معرف الكيان',
-            'visit_datetime' => 'تاريخ الزيارة',
+            'delivery_date' => 'تاريخ التسليم',
             'order_notes' => 'ملاحظات الطلب',
             'discount_type' => 'نوع الخصم',
             'discount_value' => 'قيمة الخصم',

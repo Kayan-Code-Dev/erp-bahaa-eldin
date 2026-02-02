@@ -445,7 +445,8 @@ class OrderController extends Controller
                  *                 @OA\Property(property="status", type="string", enum={"created", "partially_paid", "paid", "delivered", "finished", "canceled"}, example="created", description="Order status (auto-calculated, read-only in response)"),
                  *                 @OA\Property(property="paid", type="number", format="float", example=50.00, description="Total amount paid (excludes fee payments - fees are tracked separately)"),
                  *                 @OA\Property(property="remaining", type="number", format="float", example=50.50, description="Remaining amount = total_price - paid (fees do not affect this calculation)"),
-                 *                 @OA\Property(property="visit_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="MySQL datetime format: Y-m-d H:i:s"),
+                 *                 @OA\Property(property="visit_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="موعد الزيارة. MySQL datetime format: Y-m-d H:i:s"),
+                 *                 @OA\Property(property="delivery_date", type="string", format="date-time", example="2025-12-05 10:00:00", nullable=true, description="تاريخ التسليم. MySQL datetime format: Y-m-d H:i:s"),
                  *                 @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes", description="Order notes"),
  *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
  *                 @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
@@ -565,7 +566,8 @@ class OrderController extends Controller
              *             @OA\Property(property="status", type="string", enum={"created", "partially_paid", "paid", "delivered", "finished", "canceled"}, example="created", description="Order status"),
              *             @OA\Property(property="paid", type="number", format="float", example=50.00, description="Total amount paid (excludes fee payments - fees are tracked separately)"),
              *             @OA\Property(property="remaining", type="number", format="float", example=50.50, description="Remaining amount = total_price - paid (fees do not affect this calculation)"),
-             *             @OA\Property(property="visit_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="MySQL datetime format: Y-m-d H:i:s"),
+             *             @OA\Property(property="visit_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="موعد الزيارة. MySQL datetime format: Y-m-d H:i:s"),
+             *             @OA\Property(property="delivery_date", type="string", format="date-time", example="2025-12-05 10:00:00", nullable=true, description="تاريخ التسليم. MySQL datetime format: Y-m-d H:i:s"),
              *             @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes", description="Order notes"),
              *             @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
              *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
@@ -622,7 +624,7 @@ class OrderController extends Controller
      *             @OA\Property(property="entity_type", type="string", enum={"branch", "workshop", "factory"}, example="branch", description="Entity type"),
      *             @OA\Property(property="entity_id", type="integer", example=1, description="Entity ID"),
      *             @OA\Property(property="paid", type="number", format="float", nullable=true, example=50.00, description="Initial payment amount (optional). If provided, creates initial payment and updates order status automatically"),
-     *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25", description="Visit datetime. MySQL datetime format: Y-m-d H:i:s"),
+     *             @OA\Property(property="delivery_date", type="string", format="date-time", nullable=true, example="2025-12-05 10:00:00", description="Delivery date (تاريخ التسليم). MySQL datetime format: Y-m-d H:i:s"),
      *             @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes", description="Order notes"),
      *             @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage", description="Order-level discount type. If provided, discount_value must be > 0"),
      *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00, description="Order-level discount value. Required if discount_type is provided, must be > 0. If discount_type is percentage, value should be > 0 and <= 100. If fixed, value is the discount amount (decimal 10,2)"),
@@ -652,6 +654,7 @@ class OrderController extends Controller
      *             @OA\Property(property="paid", type="number", format="float", example=50.00),
      *             @OA\Property(property="remaining", type="number", format="float", example=50.00),
      *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
+     *             @OA\Property(property="delivery_date", type="string", format="date-time", nullable=true, example="2025-12-05 10:00:00"),
      *             @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes"),
      *             @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
      *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
@@ -812,6 +815,7 @@ class OrderController extends Controller
      *             @OA\Property(property="paid", type="number", format="float", example=50.00),
      *             @OA\Property(property="remaining", type="number", format="float", example=50.00),
      *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
+     *             @OA\Property(property="delivery_date", type="string", format="date-time", nullable=true, example="2025-12-05 10:00:00"),
      *             @OA\Property(property="entity_type", type="string", enum={"branch", "workshop", "factory"}, example="branch"),
      *             @OA\Property(property="entity_id", type="integer", example=1)
      *         )
@@ -835,8 +839,8 @@ class OrderController extends Controller
         $user = $request->user();
 
         // Update visit_datetime if provided
-        if (array_key_exists('visit_datetime', $data)) {
-            $orderUpdateService->updateVisitDatetime($order, $data['visit_datetime'], $user);
+        if (array_key_exists('delivery_date', $data)) {
+            $orderUpdateService->updateVisitDatetime($order, $data['delivery_date'], $user);
         }
 
         // Handle cloth replacements
@@ -1492,6 +1496,7 @@ class OrderController extends Controller
      *                 @OA\Property(property="paid", type="number", format="float", example=50.00),
      *                 @OA\Property(property="remaining", type="number", format="float", example=50.50),
      *                 @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
+     *                 @OA\Property(property="delivery_date", type="string", format="date-time", nullable=true, example="2025-12-05 10:00:00"),
      *                 @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes"),
      *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
      *                 @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
@@ -1810,105 +1815,255 @@ class OrderController extends Controller
      */
     public function returnCloth(Request $request, $orderId, $clothId)
     {
-        $request->validate([
-            'entity_type' => 'required|in:branch,workshop,factory',
-            'entity_id' => 'required|integer',
-            'note' => 'required|string',
-            'photos' => 'required|array|min:1|max:10',
-            'photos.*' => 'required|image|mimes:jpeg,png,gif,webp,bmp|max:5120',
-        ]);
-
-        $order = Order::findOrFail($orderId);
-        $cloth = Cloth::findOrFail($clothId);
-
-        // Check if cloth belongs to the order and is rent type and returnable
-        $clothOrder = DB::table('cloth_order')
-            ->where('order_id', $order->id)
-            ->where('cloth_id', $cloth->id)
-            ->where('type', 'rent')
-            ->where('returnable', true)
-            ->first();
-
-        if (!$clothOrder) {
-            return response()->json([
-                'message' => 'Cloth is not part of this order as a rentable item or has already been returned'
-            ], 422);
-        }
-
-        // Check order status - cannot return if order is finished or canceled
-        if (in_array($order->status, ['finished', 'canceled'])) {
-            return response()->json([
-                'message' => 'Cannot return cloth from order in current status'
-            ], 422);
-        }
-
-        // Validate destination entity
-        $entityClass = $this->getEntityClassFromType($request->entity_type);
-        $entity = $entityClass::findOrFail($request->entity_id);
-
-        // Get destination inventory - try relationship first, then query directly
-        $destinationInventory = null;
-        if (method_exists($entity, 'inventory')) {
-            $destinationInventory = $entity->inventory;
-        }
-
-        // If relationship doesn't return inventory, query directly
-        if (!$destinationInventory) {
-            $destinationInventory = Inventory::where('inventoriable_type', $entityClass)
-                ->where('inventoriable_id', $request->entity_id)
-                ->first();
-        }
-
-        // If still no inventory, create one
-        if (!$destinationInventory) {
-            $destinationInventory = $entity->inventory()->create(['name' => $entity->name . ' Inventory']);
-        }
-
-        // Handle photo uploads
-        $photos = $this->handleClothReturnPhotoUploads($request->file('photos'), $order->id, $cloth->id);
-
-        // Create cloth return photo records
-        foreach ($photos as $photoPath) {
-            ClothReturnPhoto::create([
-                'order_id' => $order->id,
-                'cloth_id' => $cloth->id,
-                'photo_path' => $photoPath,
-                'photo_type' => 'return_photo',
+        try {
+            // Validate request data with Arabic messages
+            $request->validate([
+                'entity_type' => 'required|in:branch,workshop,factory',
+                'entity_id' => 'required|integer',
+                'note' => 'required|string',
+                'photos' => 'required|array|min:1|max:10',
+                'photos.*' => 'required|image|mimes:jpeg,png,gif,webp,bmp|max:5120',
+            ], [
+                'entity_type.required' => 'نوع الجهة مطلوب | Entity type is required',
+                'entity_type.in' => 'نوع الجهة يجب أن يكون فرع أو ورشة أو مصنع | Entity type must be branch, workshop, or factory',
+                'entity_id.required' => 'معرف الجهة مطلوب | Entity ID is required',
+                'entity_id.integer' => 'معرف الجهة يجب أن يكون رقم صحيح | Entity ID must be an integer',
+                'note.required' => 'الملاحظة مطلوبة | Note is required',
+                'note.string' => 'الملاحظة يجب أن تكون نص | Note must be a string',
+                'photos.required' => 'يجب رفع صورة واحدة على الأقل | At least one photo is required',
+                'photos.array' => 'الصور يجب أن تكون مصفوفة | Photos must be an array',
+                'photos.min' => 'يجب رفع صورة واحدة على الأقل | At least one photo is required',
+                'photos.max' => 'لا يمكن رفع أكثر من 10 صور | Cannot upload more than 10 photos',
+                'photos.*.required' => 'الصورة مطلوبة | Photo is required',
+                'photos.*.image' => 'الملف يجب أن يكون صورة | File must be an image',
+                'photos.*.mimes' => 'الصورة يجب أن تكون من نوع jpeg, png, gif, webp, bmp | Image must be jpeg, png, gif, webp, or bmp',
+                'photos.*.max' => 'حجم الصورة يجب ألا يتجاوز 5 ميجابايت | Image size must not exceed 5MB',
             ]);
+
+            // Find order
+            $order = Order::find($orderId);
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'ORDER_NOT_FOUND',
+                    'message' => 'الطلب غير موجود | Order not found',
+                    'details' => [
+                        'order_id' => $orderId,
+                    ]
+                ], 404);
+            }
+
+            // Find cloth
+            $cloth = Cloth::find($clothId);
+            if (!$cloth) {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'CLOTH_NOT_FOUND',
+                    'message' => 'القطعة غير موجودة | Cloth not found',
+                    'details' => [
+                        'cloth_id' => $clothId,
+                    ]
+                ], 404);
+            }
+
+            // Check if cloth belongs to the order and is rent type and returnable
+            $clothOrder = DB::table('cloth_order')
+                ->where('order_id', $order->id)
+                ->where('cloth_id', $cloth->id)
+                ->first();
+
+            if (!$clothOrder) {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'CLOTH_NOT_IN_ORDER',
+                    'message' => 'القطعة ليست جزء من هذا الطلب | Cloth is not part of this order',
+                    'details' => [
+                        'order_id' => $order->id,
+                        'cloth_id' => $cloth->id,
+                    ]
+                ], 422);
+            }
+
+            if ($clothOrder->type !== 'rent') {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'CLOTH_NOT_RENTABLE',
+                    'message' => 'القطعة ليست من نوع الإيجار | Cloth is not a rental item',
+                    'details' => [
+                        'order_id' => $order->id,
+                        'cloth_id' => $cloth->id,
+                        'current_type' => $clothOrder->type,
+                    ]
+                ], 422);
+            }
+
+            if (!$clothOrder->returnable) {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'CLOTH_ALREADY_RETURNED',
+                    'message' => 'تم إرجاع هذه القطعة مسبقاً | This cloth has already been returned',
+                    'details' => [
+                        'order_id' => $order->id,
+                        'cloth_id' => $cloth->id,
+                    ]
+                ], 422);
+            }
+
+            // Check order status - cannot return if order is finished or canceled
+            if ($order->status === 'finished') {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'ORDER_ALREADY_FINISHED',
+                    'message' => 'لا يمكن إرجاع قطعة من طلب منتهي | Cannot return cloth from a finished order',
+                    'details' => [
+                        'order_id' => $order->id,
+                        'order_status' => $order->status,
+                    ]
+                ], 422);
+            }
+
+            if ($order->status === 'canceled') {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'ORDER_CANCELED',
+                    'message' => 'لا يمكن إرجاع قطعة من طلب ملغي | Cannot return cloth from a canceled order',
+                    'details' => [
+                        'order_id' => $order->id,
+                        'order_status' => $order->status,
+                    ]
+                ], 422);
+            }
+
+            // Validate destination entity
+            $entityClass = $this->getEntityClassFromType($request->entity_type);
+            $entity = $entityClass::find($request->entity_id);
+
+            if (!$entity) {
+                $entityTypeArabic = [
+                    'branch' => 'الفرع',
+                    'workshop' => 'الورشة',
+                    'factory' => 'المصنع',
+                ][$request->entity_type] ?? 'الجهة';
+
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'DESTINATION_NOT_FOUND',
+                    'message' => "{$entityTypeArabic} غير موجود | " . ucfirst($request->entity_type) . " not found",
+                    'details' => [
+                        'entity_type' => $request->entity_type,
+                        'entity_id' => $request->entity_id,
+                    ]
+                ], 404);
+            }
+
+            // Get destination inventory - try relationship first, then query directly
+            $destinationInventory = null;
+            if (method_exists($entity, 'inventory')) {
+                $destinationInventory = $entity->inventory;
+            }
+
+            // If relationship doesn't return inventory, query directly
+            if (!$destinationInventory) {
+                $destinationInventory = Inventory::where('inventoriable_type', $entityClass)
+                    ->where('inventoriable_id', $request->entity_id)
+                    ->first();
+            }
+
+            // If still no inventory, create one
+            if (!$destinationInventory) {
+                $destinationInventory = $entity->inventory()->create(['name' => $entity->name . ' Inventory']);
+            }
+
+            // Handle photo uploads
+            $photos = $this->handleClothReturnPhotoUploads($request->file('photos'), $order->id, $cloth->id);
+
+            if (empty($photos)) {
+                return response()->json([
+                    'success' => false,
+                    'error_code' => 'PHOTO_UPLOAD_FAILED',
+                    'message' => 'فشل في رفع الصور | Failed to upload photos',
+                    'details' => [
+                        'order_id' => $order->id,
+                        'cloth_id' => $cloth->id,
+                    ]
+                ], 500);
+            }
+
+            // Create cloth return photo records
+            foreach ($photos as $photoPath) {
+                ClothReturnPhoto::create([
+                    'order_id' => $order->id,
+                    'cloth_id' => $cloth->id,
+                    'photo_path' => $photoPath,
+                    'photo_type' => 'return_photo',
+                ]);
+            }
+
+            // Update cloth order record - mark as not returnable
+            DB::table('cloth_order')
+                ->where('order_id', $order->id)
+                ->where('cloth_id', $cloth->id)
+                ->update(['returnable' => false]);
+
+            // Update cloth status to repairing
+            $cloth->update(['status' => 'repairing']);
+
+            // Transfer cloth to destination inventory
+            DB::table('cloth_inventory')
+                ->where('cloth_id', $cloth->id)
+                ->delete();
+            DB::table('cloth_inventory')->insert([
+                'cloth_id' => $cloth->id,
+                'inventory_id' => $destinationInventory->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Clear relationship cache
+            $cloth->load('inventories');
+            $destinationInventory->load('clothes');
+
+            // Record history
+            $historyService = new ClothHistoryService();
+            $historyService->recordReturned($cloth, $order, $request->user());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم إرجاع القطعة بنجاح | Cloth returned successfully',
+                'data' => [
+                    'cloth' => $cloth->fresh(),
+                    'order_id' => $order->id,
+                    'destination' => [
+                        'type' => $request->entity_type,
+                        'id' => $request->entity_id,
+                        'name' => $entity->name,
+                        'inventory_id' => $destinationInventory->id,
+                    ],
+                    'photos_count' => count($photos),
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'error_code' => 'VALIDATION_ERROR',
+                'message' => 'خطأ في البيانات المدخلة | Validation error',
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error_code' => 'INTERNAL_ERROR',
+                'message' => 'حدث خطأ غير متوقع | An unexpected error occurred',
+                'details' => config('app.debug') ? [
+                    'exception' => get_class($e),
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ] : null,
+            ], 500);
         }
-
-        // Update cloth order record - mark as not returnable
-        DB::table('cloth_order')
-            ->where('order_id', $order->id)
-            ->where('cloth_id', $cloth->id)
-            ->update(['returnable' => false]);
-
-        // Update cloth status to repairing
-        $cloth->update(['status' => 'repairing']);
-
-        // Transfer cloth to destination inventory
-        // Use DB to ensure the transfer is immediate and persisted
-        DB::table('cloth_inventory')
-            ->where('cloth_id', $cloth->id)
-            ->delete();
-        DB::table('cloth_inventory')->insert([
-            'cloth_id' => $cloth->id,
-            'inventory_id' => $destinationInventory->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        // Clear relationship cache
-        $cloth->load('inventories');
-        $destinationInventory->load('clothes');
-
-        // Record history - we'll record returned action and entity transfer
-        $historyService = new ClothHistoryService();
-        $historyService->recordReturned($cloth, $order, $request->user());
-
-        return response()->json([
-            'message' => 'Cloth returned successfully',
-            'cloth' => $cloth->fresh(),
-        ]);
     }
 
     /**
