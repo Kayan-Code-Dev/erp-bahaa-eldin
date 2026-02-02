@@ -25,7 +25,9 @@ use App\Services\TransactionService;
 use App\Services\OrderService;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderRequest;
+use App\Http\Requests\ReturnClothRequest;
 use App\Services\OrderUpdateService;
+use App\Services\ReturnClothService;
 use App\Models\TailoringStageLog;
 use App\Rules\MySqlDateTime;
 use App\Http\Controllers\Traits\FiltersByEntityAccess;
@@ -168,21 +170,21 @@ class OrderController extends Controller
     private function flattenItemsPivot($items)
     {
         $flattenCloth = function ($cloth) {
-            if ($cloth->pivot) {
+                        if ($cloth->pivot) {
                 // Basic fields
-                $cloth->price = $cloth->pivot->price ?? null;
-                $cloth->type = $cloth->pivot->type ?? null;
+                            $cloth->price = $cloth->pivot->price ?? null;
+                            $cloth->type = $cloth->pivot->type ?? null;
                 $cloth->quantity = $cloth->pivot->quantity ?? 1;
                 $cloth->item_paid = $cloth->pivot->paid ?? 0;
                 $cloth->item_remaining = $cloth->pivot->remaining ?? 0;
-                $cloth->days_of_rent = $cloth->pivot->days_of_rent ?? null;
-                $cloth->occasion_datetime = $cloth->pivot->occasion_datetime ?? null;
-                $cloth->delivery_date = $cloth->pivot->delivery_date ?? null;
-                $cloth->status = $cloth->pivot->status ?? null;
+                            $cloth->days_of_rent = $cloth->pivot->days_of_rent ?? null;
+                        $cloth->occasion_datetime = $cloth->pivot->occasion_datetime ?? null;
+                        $cloth->delivery_date = $cloth->pivot->delivery_date ?? null;
+                        $cloth->status = $cloth->pivot->status ?? null;
                 $cloth->notes = $cloth->pivot->notes ?? null;
                 $cloth->discount_type = $cloth->pivot->discount_type ?? null;
                 $cloth->discount_value = $cloth->pivot->discount_value ?? null;
-                $cloth->returnable = $cloth->pivot->returnable ?? null;
+                        $cloth->returnable = $cloth->pivot->returnable ?? null;
                 // Factory fields
                 $cloth->factory_status = $cloth->pivot->factory_status ?? null;
                 $cloth->factory_rejection_reason = $cloth->pivot->factory_rejection_reason ?? null;
@@ -201,9 +203,9 @@ class OrderController extends Controller
                 $cloth->total_length = $cloth->pivot->total_length ?? null;
                 $cloth->hinch = $cloth->pivot->hinch ?? null;
                 $cloth->dress_size = $cloth->pivot->dress_size ?? null;
-                unset($cloth->pivot);
-            }
-            return $cloth;
+                        unset($cloth->pivot);
+                        }
+                        return $cloth;
         };
 
         if ($items instanceof \Illuminate\Pagination\LengthAwarePaginator) {
@@ -762,11 +764,11 @@ class OrderController extends Controller
         $result = $orderService->store($data, $inventory, $user);
 
         if ($result['errors']) {
-            return response()->json([
+                        return response()->json([
                 'message' => $result['errors']['message'],
                 'errors' => $result['errors']['details']
-            ], 422);
-        }
+                        ], 422);
+                    }
 
         $order = $result['order'];
 
@@ -797,8 +799,8 @@ class OrderController extends Controller
      *                 required={"old_cloth_id", "new_cloth_id"},
      *                 @OA\Property(property="old_cloth_id", type="integer", example=5, description="معرف القطعة القديمة (يجب أن تكون في الطلب)"),
      *                 @OA\Property(property="new_cloth_id", type="integer", example=10, description="معرف القطعة الجديدة (يجب أن تكون في المخزن)")
-     *             ))
-     *         )
+ *             ))
+ *         )
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -1808,128 +1810,36 @@ class OrderController extends Controller
      *     @OA\Response(response=422, description="Validation error or cloth cannot be returned")
      * )
      */
-    public function returnCloth(Request $request, $orderId, $clothId)
+    public function returnCloth(ReturnClothRequest $request, $orderId, $clothId)
     {
-        $request->validate([
-            'entity_type' => 'required|in:branch,workshop,factory',
-            'entity_id' => 'required|integer',
-            'note' => 'required|string',
-            'photos' => 'required|array|min:1|max:10',
-            'photos.*' => 'required|image|mimes:jpeg,png,gif,webp,bmp|max:5120',
-        ]);
-
         $order = Order::findOrFail($orderId);
         $cloth = Cloth::findOrFail($clothId);
 
-        // Check if cloth belongs to the order and is rent type and returnable
-        $clothOrder = DB::table('cloth_order')
-            ->where('order_id', $order->id)
-            ->where('cloth_id', $cloth->id)
-            ->where('type', 'rent')
-            ->where('returnable', true)
-            ->first();
+        $returnClothService = new ReturnClothService();
 
-        if (!$clothOrder) {
-            return response()->json([
-                'message' => 'Cloth is not part of this order as a rentable item or has already been returned'
-            ], 422);
+        // Process the return
+        $result = $returnClothService->processReturn(
+            $order,
+            $cloth,
+            [
+                'entity_type' => $request->entity_type,
+                'entity_id' => $request->entity_id,
+                'note' => $request->note,
+                'photos' => $request->file('photos'),
+            ],
+            $request->user()
+        );
+
+        if (!$result['success']) {
+            return response()->json($result['error'], 422);
         }
-
-        // Check order status - cannot return if order is finished or canceled
-        if (in_array($order->status, ['finished', 'canceled'])) {
-            return response()->json([
-                'message' => 'Cannot return cloth from order in current status'
-            ], 422);
-        }
-
-        // Validate destination entity
-        $entityClass = $this->getEntityClassFromType($request->entity_type);
-        $entity = $entityClass::findOrFail($request->entity_id);
-
-        // Get destination inventory - try relationship first, then query directly
-        $destinationInventory = null;
-        if (method_exists($entity, 'inventory')) {
-            $destinationInventory = $entity->inventory;
-        }
-
-        // If relationship doesn't return inventory, query directly
-        if (!$destinationInventory) {
-            $destinationInventory = Inventory::where('inventoriable_type', $entityClass)
-                ->where('inventoriable_id', $request->entity_id)
-                ->first();
-        }
-
-        // If still no inventory, create one
-        if (!$destinationInventory) {
-            $destinationInventory = $entity->inventory()->create(['name' => $entity->name . ' Inventory']);
-        }
-
-        // Handle photo uploads
-        $photos = $this->handleClothReturnPhotoUploads($request->file('photos'), $order->id, $cloth->id);
-
-        // Create cloth return photo records
-        foreach ($photos as $photoPath) {
-            ClothReturnPhoto::create([
-                'order_id' => $order->id,
-                'cloth_id' => $cloth->id,
-                'photo_path' => $photoPath,
-                'photo_type' => 'return_photo',
-            ]);
-        }
-
-        // Update cloth order record - mark as not returnable
-        DB::table('cloth_order')
-            ->where('order_id', $order->id)
-            ->where('cloth_id', $cloth->id)
-            ->update(['returnable' => false]);
-
-        // Update cloth status to repairing
-        $cloth->update(['status' => 'repairing']);
-
-        // Transfer cloth to destination inventory
-        // Use DB to ensure the transfer is immediate and persisted
-        DB::table('cloth_inventory')
-            ->where('cloth_id', $cloth->id)
-            ->delete();
-        DB::table('cloth_inventory')->insert([
-            'cloth_id' => $cloth->id,
-            'inventory_id' => $destinationInventory->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        // Clear relationship cache
-        $cloth->load('inventories');
-        $destinationInventory->load('clothes');
-
-        // Record history - we'll record returned action and entity transfer
-        $historyService = new ClothHistoryService();
-        $historyService->recordReturned($cloth, $order, $request->user());
 
         return response()->json([
-            'message' => 'Cloth returned successfully',
-            'cloth' => $cloth->fresh(),
+            'message' => 'تم إرجاع القطعة بنجاح',
+            'cloth' => $result['cloth'],
         ]);
     }
 
-    /**
-     * Handle cloth return photo uploads
-     */
-    private function handleClothReturnPhotoUploads($photos, $orderId, $clothId)
-    {
-        $uploadedPaths = [];
-
-        foreach ($photos as $photo) {
-            $timestamp = now()->format('Ymd_His');
-            $random = strtoupper(substr(md5(uniqid()), 0, 6));
-            $extension = $photo->getClientOriginalExtension();
-            $filename = "cloth-return_{$orderId}_{$clothId}_{$timestamp}_{$random}.{$extension}";
-
-            $path = $photo->storeAs('cloth-return-photos', $filename, 'private');
-            $uploadedPaths[] = $path;
-        }
-
-        return $uploadedPaths;
-    }
 
     /**
      * Get entity class from type string
