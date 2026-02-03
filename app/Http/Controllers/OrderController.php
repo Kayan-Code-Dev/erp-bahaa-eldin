@@ -517,7 +517,7 @@ class OrderController extends Controller
 
         // Filter for delayed orders (delivery_date has passed but order is not delivered/finished/canceled)
         if ($request->has('delayed') && $request->query('delayed') === 'true') {
-            $query->whereNotNull('delivery_date')
+            $query->whereNotNull(columns: 'delivery_date')
                   ->whereDate('delivery_date', '<', today())
                   ->whereNotIn('status', ['delivered', 'finished', 'canceled']);
         }
