@@ -405,6 +405,9 @@ class OrderController extends Controller
      *     @OA\Parameter(name="date_to", in="query", required=false, description="Filter orders created to date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="visit_from", in="query", required=false, description="Filter by visit datetime from date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="visit_to", in="query", required=false, description="Filter by visit datetime to date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="delivery_from", in="query", required=false, description="Filter by delivery date from (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="delivery_to", in="query", required=false, description="Filter by delivery date to (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="delayed", in="query", required=false, description="Filter delayed orders (delivery_date passed but not delivered). Use 'true' to enable", @OA\Schema(type="string", enum={"true", "false"})),
      *     @OA\Parameter(name="search", in="query", required=false, description="Search by order ID, client name or national ID", @OA\Schema(type="string")),
      *     @OA\Response(
      *         response=200,
@@ -508,8 +511,15 @@ class OrderController extends Controller
         if ($request->has('delivery_from') && $request->query('delivery_from')) {
             $query->whereDate('delivery_date', '>=', $request->query('delivery_from'));
         }
-        if ($request->has('delivery_from') && $request->query('delivery_to')) {
+        if ($request->has('delivery_to') && $request->query('delivery_to')) {
             $query->whereDate('delivery_date', '<=', $request->query('delivery_to'));
+        }
+
+        // Filter for delayed orders (delivery_date has passed but order is not delivered/finished/canceled)
+        if ($request->has('delayed') && $request->query('delayed') === 'true') {
+            $query->whereNotNull('delivery_date')
+                  ->whereDate('delivery_date', '<', today())
+                  ->whereNotIn('status', ['delivered', 'finished', 'canceled']);
         }
 
         // Search by order ID or client name
