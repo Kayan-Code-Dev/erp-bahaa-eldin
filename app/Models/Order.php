@@ -22,6 +22,8 @@ class Order extends Model
         'remaining',
         'visit_datetime',
         'delivery_date',
+        'days_of_rent',
+        'occasion_datetime',
         'order_notes',
         'discount_type',
         'discount_value',
@@ -39,6 +41,8 @@ class Order extends Model
 
     protected $casts = [
         'delivery_date' => 'date',
+        'days_of_rent' => 'integer',
+        'occasion_datetime' => 'datetime',
         'tailoring_stage_changed_at' => 'datetime',
         'expected_completion_date' => 'date',
         'actual_completion_date' => 'date',
@@ -159,9 +163,6 @@ class Order extends Model
                         'quantity',
                         'paid',      // المبلغ المدفوع
                         'remaining', // المبلغ المتبقي
-                        'days_of_rent',
-                        'occasion_datetime',
-                        'delivery_date',
                         'status',
                         'notes',
                         'discount_type',

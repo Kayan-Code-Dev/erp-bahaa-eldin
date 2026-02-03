@@ -7,21 +7,17 @@ use App\Rules\MySqlDateTime;
 
 class StoreOrderRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
+
+
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     */
+
     public function rules(): array
     {
         return [
-            // Client selection: existing or new
             'existing_client' => 'required|boolean',
 
             // If existing client, require client_id
@@ -48,10 +44,11 @@ class StoreOrderRequest extends FormRequest
             'client.length_size' => 'nullable|string|max:20',
             'client.measurement_notes' => 'nullable|string|max:1000',
 
-            // Order fields
             'entity_type' => 'required|string|in:branch,workshop,factory',
             'entity_id' => 'required|integer',
-            'delivery_date' => ['nullable', new MySqlDateTime()],
+            'delivery_date' => 'nullable|date|after_or_equal:today',
+            'days_of_rent' => 'nullable|integer|min:1',
+            'occasion_datetime' => ['nullable', new MySqlDateTime()],
 
             'order_notes' => 'nullable|string',
             'discount_type' => 'nullable|string|in:percentage,fixed', // خصم على مستوى الطلب
@@ -64,9 +61,6 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity' => 'nullable|integer|min:1', // الكمية
             'items.*.paid' => 'nullable|numeric|min:0', // المبلغ المدفوع لكل قطعة
             'items.*.type' => 'required|string|in:buy,rent,tailoring',
-            'items.*.days_of_rent' => 'required_if:items.*.type,rent|nullable|integer|min:1',
-            'items.*.occasion_datetime' => ['required_if:items.*.type,rent', 'nullable', new MySqlDateTime()],
-            'items.*.delivery_date' => 'required_if:items.*.type,rent|nullable|date|after_or_equal:today',
             'items.*.notes' => 'nullable|string',
             'items.*.discount_type' => 'nullable|string|in:percentage,fixed',
             'items.*.discount_value' => 'required_with:items.*.discount_type|nullable|numeric|gt:0',
@@ -101,6 +95,8 @@ class StoreOrderRequest extends FormRequest
             'entity_type' => 'نوع الكيان',
             'entity_id' => 'معرف الكيان',
             'delivery_date' => 'تاريخ التسليم',
+            'days_of_rent' => 'أيام الإيجار',
+            'occasion_datetime' => 'تاريخ المناسبة',
             'order_notes' => 'ملاحظات الطلب',
             'discount_type' => 'نوع الخصم',
             'discount_value' => 'قيمة الخصم',
@@ -110,9 +106,6 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity' => 'الكمية',
             'items.*.paid' => 'المبلغ المدفوع',
             'items.*.type' => 'نوع الطلب',
-            'items.*.days_of_rent' => 'أيام الإيجار',
-            'items.*.occasion_datetime' => 'تاريخ المناسبة',
-            'items.*.delivery_date' => 'تاريخ التسليم',
             'items.*.notes' => 'الملاحظات',
             'items.*.sleeve_length' => 'طول الكم',
             'items.*.forearm' => 'الزند',
@@ -158,10 +151,8 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity.min' => 'الكمية يجب أن تكون 1 على الأقل',
             'items.*.type.required' => 'نوع الطلب مطلوب',
             'items.*.type.in' => 'نوع الطلب يجب أن يكون buy أو rent أو tailoring',
-            'items.*.days_of_rent.required_if' => 'أيام الإيجار مطلوبة للإيجار',
-            'items.*.occasion_datetime.required_if' => 'تاريخ المناسبة مطلوب للإيجار',
-            'items.*.delivery_date.required_if' => 'تاريخ التسليم مطلوب للإيجار',
-            'items.*.delivery_date.after_or_equal' => 'تاريخ التسليم يجب أن يكون اليوم أو بعده',
+            'days_of_rent.min' => 'أيام الإيجار يجب أن تكون 1 على الأقل',
+            'delivery_date.after_or_equal' => 'تاريخ التسليم يجب أن يكون اليوم أو بعده',
         ];
     }
 }

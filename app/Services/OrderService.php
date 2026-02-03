@@ -188,6 +188,8 @@ class OrderService
                 'remaining' => $orderRemaining,
                 'visit_datetime' => now(),
                 'delivery_date' => $data['delivery_date'] ?? null,
+                'days_of_rent' => $data['days_of_rent'] ?? null,
+                'occasion_datetime' => $data['occasion_datetime'] ?? null,
                 'order_notes' => $data['order_notes'] ?? null,
                 'discount_type' => $orderDiscountType,
                 'discount_value' => $orderDiscountValue,
@@ -257,18 +259,18 @@ class OrderService
             ];
         }
 
-        // Check rental availability
-        if ($itemData['type'] === 'rent' && isset($itemData['delivery_date']) && isset($itemData['days_of_rent'])) {
+        // Check rental availability using order-level fields
+        if ($itemData['type'] === 'rent' && $order->delivery_date && $order->days_of_rent) {
             $availability = $this->checkRentalAvailability(
                 $cloth->id,
-                $itemData['delivery_date'],
-                $itemData['days_of_rent']
+                $order->delivery_date,
+                $order->days_of_rent
             );
             if (!$availability['available']) {
                 return [
                     'error' => [
                         'message' => 'Cloth is not available for rent on the requested dates',
-                        'details' => ["items.{$index}.delivery_date" => ['Conflicts: ' . implode(', ', $availability['conflicts'])]]
+                        'details' => ['delivery_date' => ['Conflicts: ' . implode(', ', $availability['conflicts'])]]
                     ]
                 ];
             }
@@ -324,9 +326,6 @@ class OrderService
             'quantity' => $quantity,
             'paid' => $paid, // المبلغ المدفوع
             'remaining' => $remaining, // المبلغ المتبقي
-            'days_of_rent' => ($itemData['type'] === 'rent') ? ($itemData['days_of_rent'] ?? 0) : null,
-            'occasion_datetime' => ($itemData['type'] === 'rent') ? ($itemData['occasion_datetime'] ?? null) : null,
-            'delivery_date' => ($itemData['type'] === 'rent') ? ($itemData['delivery_date'] ?? null) : null,
             'status' => 'created',
             'notes' => $itemData['notes'] ?? null,
             'discount_type' => $itemData['discount_type'] ?? null,

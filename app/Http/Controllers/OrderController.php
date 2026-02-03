@@ -175,9 +175,6 @@ class OrderController extends Controller
                 $cloth->quantity = $cloth->pivot->quantity ?? 1;
                 $cloth->item_paid = $cloth->pivot->paid ?? 0;
                 $cloth->item_remaining = $cloth->pivot->remaining ?? 0;
-                            $cloth->days_of_rent = $cloth->pivot->days_of_rent ?? null;
-                        $cloth->occasion_datetime = $cloth->pivot->occasion_datetime ?? null;
-                        $cloth->delivery_date = $cloth->pivot->delivery_date ?? null;
                         $cloth->status = $cloth->pivot->status ?? null;
                 $cloth->notes = $cloth->pivot->notes ?? null;
                 $cloth->discount_type = $cloth->pivot->discount_type ?? null;
@@ -446,7 +443,9 @@ class OrderController extends Controller
                  *                 @OA\Property(property="paid", type="number", format="float", example=50.00, description="Total amount paid (excludes fee payments - fees are tracked separately)"),
                  *                 @OA\Property(property="remaining", type="number", format="float", example=50.50, description="Remaining amount = total_price - paid (fees do not affect this calculation)"),
                  *                 @OA\Property(property="visit_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="موعد الزيارة. MySQL datetime format: Y-m-d H:i:s"),
-                 *                 @OA\Property(property="delivery_date", type="string", format="date-time", example="2025-12-05 10:00:00", nullable=true, description="تاريخ التسليم. MySQL datetime format: Y-m-d H:i:s"),
+                 *                 @OA\Property(property="delivery_date", type="string", format="date", example="2025-12-05", nullable=true, description="تاريخ التسليم"),
+                 *                 @OA\Property(property="days_of_rent", type="integer", example=3, nullable=true, description="أيام الإيجار (order level)"),
+                 *                 @OA\Property(property="occasion_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="تاريخ المناسبة (order level). MySQL format: Y-m-d H:i:s"),
                  *                 @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes", description="Order notes"),
  *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
  *                 @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
@@ -457,9 +456,6 @@ class OrderController extends Controller
                  *                     @OA\Property(property="name", type="string", example="Red Dress"),
                  *                     @OA\Property(property="price", type="number", format="float", example=50.00, description="Price from pivot"),
                  *                     @OA\Property(property="type", type="string", enum={"buy", "rent", "tailoring"}, example="rent", description="Item type"),
-                 *                     @OA\Property(property="days_of_rent", type="integer", example=3, nullable=true, description="Days of rent from pivot (only for rent type)"),
-                 *                     @OA\Property(property="occasion_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="Occasion datetime from pivot (only for rent type). MySQL format: Y-m-d H:i:s"),
-                 *                     @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-25", description="Delivery date from pivot"),
                  *                     @OA\Property(property="status", type="string", enum={"created", "partially_paid", "paid", "delivered", "finished", "canceled", "rented"}, example="created", description="Status from pivot"),
                  *                     @OA\Property(property="notes", type="string", nullable=true, example="Item notes"),
  *                     @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
@@ -573,7 +569,9 @@ class OrderController extends Controller
              *             @OA\Property(property="paid", type="number", format="float", example=50.00, description="Total amount paid (excludes fee payments - fees are tracked separately)"),
              *             @OA\Property(property="remaining", type="number", format="float", example=50.50, description="Remaining amount = total_price - paid (fees do not affect this calculation)"),
              *             @OA\Property(property="visit_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="موعد الزيارة. MySQL datetime format: Y-m-d H:i:s"),
-             *             @OA\Property(property="delivery_date", type="string", format="date-time", example="2025-12-05 10:00:00", nullable=true, description="تاريخ التسليم. MySQL datetime format: Y-m-d H:i:s"),
+             *             @OA\Property(property="delivery_date", type="string", format="date", example="2025-12-05", nullable=true, description="تاريخ التسليم"),
+             *             @OA\Property(property="days_of_rent", type="integer", example=3, nullable=true, description="أيام الإيجار (order level)"),
+             *             @OA\Property(property="occasion_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="تاريخ المناسبة (order level). MySQL format: Y-m-d H:i:s"),
              *             @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes", description="Order notes"),
              *             @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
              *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
@@ -584,9 +582,6 @@ class OrderController extends Controller
              *                 @OA\Property(property="name", type="string", example="Red Dress"),
              *                 @OA\Property(property="price", type="number", format="float", example=50.00, description="Price from pivot"),
              *                 @OA\Property(property="type", type="string", enum={"buy", "rent", "tailoring"}, example="rent", description="Item type"),
-             *                 @OA\Property(property="days_of_rent", type="integer", example=3, nullable=true, description="Days of rent from pivot (only for rent type)"),
-             *                 @OA\Property(property="occasion_datetime", type="string", format="date-time", example="2025-12-02 23:33:25", nullable=true, description="Occasion datetime from pivot (only for rent type). MySQL format: Y-m-d H:i:s"),
-             *                 @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-25", description="Delivery date from pivot"),
              *                 @OA\Property(property="status", type="string", enum={"created", "partially_paid", "paid", "delivered", "finished", "canceled", "rented"}, example="created", description="Status from pivot"),
              *                 @OA\Property(property="notes", type="string", nullable=true, example="Item notes"),
  *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
@@ -630,7 +625,9 @@ class OrderController extends Controller
      *             @OA\Property(property="entity_type", type="string", enum={"branch", "workshop", "factory"}, example="branch", description="Entity type"),
      *             @OA\Property(property="entity_id", type="integer", example=1, description="Entity ID"),
      *             @OA\Property(property="paid", type="number", format="float", nullable=true, example=50.00, description="Initial payment amount (optional). If provided, creates initial payment and updates order status automatically"),
-     *             @OA\Property(property="delivery_date", type="string", format="date-time", nullable=true, example="2025-12-05 10:00:00", description="Delivery date (تاريخ التسليم). MySQL datetime format: Y-m-d H:i:s"),
+     *             @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-05", description="Delivery date (تاريخ التسليم). Format: Y-m-d"),
+     *             @OA\Property(property="days_of_rent", type="integer", nullable=true, example=3, description="أيام الإيجار (order level, for rent orders)"),
+     *             @OA\Property(property="occasion_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25", description="تاريخ المناسبة (order level, for rent orders). MySQL datetime format: Y-m-d H:i:s"),
      *             @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes", description="Order notes"),
      *             @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage", description="Order-level discount type. If provided, discount_value must be > 0"),
      *             @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00, description="Order-level discount value. Required if discount_type is provided, must be > 0. If discount_type is percentage, value should be > 0 and <= 100. If fixed, value is the discount amount (decimal 10,2)"),
@@ -639,9 +636,6 @@ class OrderController extends Controller
      *                 @OA\Property(property="cloth_id", type="integer", example=1),
      *                 @OA\Property(property="price", type="number", format="float", example=100.00, description="Item price (decimal 10,2)"),
      *                 @OA\Property(property="type", type="string", enum={"buy", "rent", "tailoring"}, example="rent", description="Item type. Buy orders: exactly 1 item allowed, no mixing with rent/tailoring"),
-     *                 @OA\Property(property="days_of_rent", type="integer", nullable=true, example=3, description="Days of rent (required if type is rent)"),
-     *                 @OA\Property(property="occasion_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25", description="Occasion datetime (required if type is rent). MySQL datetime format: Y-m-d H:i:s"),
-     *                 @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-25", description="Delivery date (required if type is rent). Format: Y-m-d"),
      *                 @OA\Property(property="notes", type="string", nullable=true, example="Item notes", description="Item notes"),
      *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage", description="Item-level discount type. If provided, discount_value must be > 0"),
      *                 @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=5.00, description="Item-level discount value. Required if discount_type is provided, must be > 0. If discount_type is percentage, value should be > 0 and <= 100. If fixed, value is the discount amount (decimal 10,2)")
@@ -844,9 +838,21 @@ class OrderController extends Controller
         $data = $request->validated();
         $user = $request->user();
 
-        // Update visit_datetime if provided
+        // Update delivery_date if provided
         if (array_key_exists('delivery_date', $data)) {
-            $orderUpdateService->updateVisitDatetime($order, $data['delivery_date'], $user);
+            $orderUpdateService->updateDeliveryDate($order, $data['delivery_date'], $user);
+        }
+
+        // Update days_of_rent if provided
+        if (array_key_exists('days_of_rent', $data)) {
+            $order->days_of_rent = $data['days_of_rent'];
+            $order->save();
+        }
+
+        // Update occasion_datetime if provided
+        if (array_key_exists('occasion_datetime', $data)) {
+            $order->occasion_datetime = $data['occasion_datetime'];
+            $order->save();
         }
 
         // Handle cloth replacements
@@ -1270,7 +1276,7 @@ class OrderController extends Controller
         // Update item statuses - rent items should be 'rented', others should be 'delivered'
         $order->load('items');
         foreach ($order->items as $item) {
-            if ($item->pivot->type === 'rent' && $item->pivot->delivery_date) {
+            if ($item->pivot->type === 'rent' && $order->delivery_date) {
                 // For rent items, set status to 'rented' and create Rent record
                 $order->items()->updateExistingPivot($item->id, ['status' => 'rented']);
 
@@ -1284,15 +1290,15 @@ class OrderController extends Controller
                     throw new \Exception("Could not find cloth_order pivot record for order {$order->id} and cloth {$item->id}");
                 }
 
-                $returnDate = \Carbon\Carbon::parse($item->pivot->delivery_date)
-                    ->addDays((int)($item->pivot->days_of_rent ?? 0));
+                $returnDate = \Carbon\Carbon::parse($order->delivery_date)
+                    ->addDays((int)($order->days_of_rent ?? 0));
 
                 Rent::create([
                     'cloth_id' => $item->id,
                     'order_id' => $order->id,
                     'cloth_order_id' => $clothOrderId,
-                    'delivery_date' => $item->pivot->delivery_date,
-                    'days_of_rent' => $item->pivot->days_of_rent ?? 0,
+                    'delivery_date' => $order->delivery_date,
+                    'days_of_rent' => $order->days_of_rent ?? 0,
                     'return_date' => $returnDate,
                     'status' => 'active',
                 ]);
@@ -1502,7 +1508,9 @@ class OrderController extends Controller
      *                 @OA\Property(property="paid", type="number", format="float", example=50.00),
      *                 @OA\Property(property="remaining", type="number", format="float", example=50.50),
      *                 @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
-     *                 @OA\Property(property="delivery_date", type="string", format="date-time", nullable=true, example="2025-12-05 10:00:00"),
+     *                 @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-05"),
+     *                 @OA\Property(property="days_of_rent", type="integer", nullable=true, example=3, description="أيام الإيجار (order level)"),
+     *                 @OA\Property(property="occasion_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25", description="تاريخ المناسبة (order level)"),
      *                 @OA\Property(property="order_notes", type="string", nullable=true, example="Order notes"),
      *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),
      *                 @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00),
@@ -1513,9 +1521,6 @@ class OrderController extends Controller
      *                     @OA\Property(property="name", type="string", example="Red Dress"),
      *                     @OA\Property(property="price", type="number", format="float", example=50.00),
      *                     @OA\Property(property="type", type="string", enum={"buy", "rent", "tailoring"}, example="rent"),
-     *                     @OA\Property(property="days_of_rent", type="integer", nullable=true, example=3),
-     *                     @OA\Property(property="occasion_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25"),
-     *                     @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-25"),
      *                     @OA\Property(property="status", type="string", enum={"created", "partially_paid", "paid", "delivered", "finished", "canceled", "rented"}, example="rented"),
      *                     @OA\Property(property="notes", type="string", nullable=true, example="Item notes"),
      *                     @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage"),

@@ -50,9 +50,6 @@ class Cloth extends Model
                         'quantity',
                         'paid',      // المبلغ المدفوع
                         'remaining', // المبلغ المتبقي
-                        'days_of_rent',
-                        'occasion_datetime',
-                        'delivery_date',
                         'status',
                         'notes',
                         'discount_type',

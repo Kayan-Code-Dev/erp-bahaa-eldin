@@ -21,7 +21,9 @@ class UpdateOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'delivery_date' => ['nullable', new MySqlDateTime()],
+            'delivery_date' => 'nullable|date|after_or_equal:today',
+            'days_of_rent' => 'nullable|integer|min:1',
+            'occasion_datetime' => ['nullable', new MySqlDateTime()],
             'replace_items' => 'nullable|array',
             'replace_items.*.old_cloth_id' => 'required_with:replace_items|integer|exists:clothes,id',
             'replace_items.*.new_cloth_id' => 'required_with:replace_items|integer|exists:clothes,id',
@@ -35,6 +37,8 @@ class UpdateOrderRequest extends FormRequest
     {
         return [
             'delivery_date' => 'تاريخ التسليم',
+            'days_of_rent' => 'أيام الإيجار',
+            'occasion_datetime' => 'تاريخ المناسبة',
             'replace_items' => 'استبدال القطع',
             'replace_items.*.old_cloth_id' => 'معرف القطعة القديمة',
             'replace_items.*.new_cloth_id' => 'معرف القطعة الجديدة',
