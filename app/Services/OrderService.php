@@ -100,6 +100,14 @@ class OrderService
     }
 
     /**
+     * Calculate remaining amount (never negative)
+     */
+    public function calculateRemaining(float $totalPrice, float $paid): float
+    {
+        return max(0, $totalPrice - $paid);
+    }
+
+    /**
      * Store a new order with items and measurements
      *
      * Order Flow:
@@ -138,22 +146,13 @@ class OrderService
             $processedItems = [];
 
             foreach ($data['items'] as $index => $itemData) {
-                // Calculate item total (price * quantity - item discount)
+                // Calculate item total = price * quantity (no discount in totals)
                 $quantity = $itemData['quantity'] ?? 1;
-                $itemPrice = $itemData['price'];
-                $itemDiscountType = $itemData['discount_type'] ?? null;
-                $itemDiscountValue = $itemData['discount_value'] ?? 0;
-
-                if ($itemDiscountType === 'percentage') {
-                    $itemPrice = $itemPrice * (1 - $itemDiscountValue / 100);
-                } elseif ($itemDiscountType === 'fixed') {
-                    $itemPrice = max(0, $itemPrice - $itemDiscountValue);
-                }
-                $itemTotal = $itemPrice * $quantity;
+                $itemTotal = ((float)$itemData['price']) * (int)$quantity;
                 $itemsSubtotal += $itemTotal;
 
-                // Sum item paid amounts
-                $itemPaid = $itemData['paid'] ?? 0;
+                // Sum item paid amounts (required in request)
+                $itemPaid = (float)$itemData['paid'];
                 $totalPaid += $itemPaid;
 
                 $processedItems[] = [
@@ -164,19 +163,13 @@ class OrderService
                 ];
             }
 
-            // Apply order-level discount
+            // Total price = sum(price * quantity)
             $orderDiscountType = $data['discount_type'] ?? null;
             $orderDiscountValue = $data['discount_value'] ?? 0;
             $totalPrice = $itemsSubtotal;
 
-            if ($orderDiscountType === 'percentage') {
-                $totalPrice = $itemsSubtotal * (1 - $orderDiscountValue / 100);
-            } elseif ($orderDiscountType === 'fixed') {
-                $totalPrice = max(0, $itemsSubtotal - $orderDiscountValue);
-            }
-
             // Calculate order remaining
-            $orderRemaining = max(0, $totalPrice - $totalPaid);
+            $orderRemaining = $this->calculateRemaining($totalPrice, $totalPaid);
 
             // Create order with calculated totals
             $order = Order::create([

@@ -62,7 +62,7 @@ class StoreOrderRequest extends FormRequest
             'items.*.cloth_id' => 'required|integer|exists:clothes,id',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.quantity' => 'nullable|integer|min:1', // الكمية
-            'items.*.paid' => 'nullable|numeric|min:0', // المبلغ المدفوع لكل قطعة
+            'items.*.paid' => 'required|numeric|min:0', // المبلغ المدفوع لكل قطعة
             'items.*.type' => 'required|string|in:buy,rent,tailoring',
             'items.*.notes' => 'nullable|string',
             'items.*.discount_type' => 'nullable|string|in:percentage,fixed',
@@ -212,6 +212,7 @@ class StoreOrderRequest extends FormRequest
             'items.*.price.required' => 'السعر مطلوب',
             'items.*.price.min' => 'السعر يجب أن يكون أكبر من أو يساوي صفر',
             'items.*.quantity.min' => 'الكمية يجب أن تكون 1 على الأقل',
+            'items.*.paid.required' => 'المبلغ المدفوع مطلوب',
             'items.*.type.required' => 'نوع الطلب مطلوب',
             'items.*.type.in' => 'نوع الطلب يجب أن يكون buy أو rent أو tailoring',
             'days_of_rent.min' => 'أيام الإيجار يجب أن تكون 1 على الأقل',
