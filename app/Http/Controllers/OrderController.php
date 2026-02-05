@@ -860,7 +860,22 @@ class OrderController extends Controller
      *             @OA\Property(property="replace_items", type="array", nullable=true, description="استبدال قطع الملابس", @OA\Items(
      *                 required={"old_cloth_id", "new_cloth_id"},
      *                 @OA\Property(property="old_cloth_id", type="integer", example=5, description="معرف القطعة القديمة (يجب أن تكون في الطلب)"),
-     *                 @OA\Property(property="new_cloth_id", type="integer", example=10, description="معرف القطعة الجديدة (يجب أن تكون في المخزن)")
+     *                 @OA\Property(property="new_cloth_id", type="integer", example=10, description="معرف القطعة الجديدة (يجب أن تكون في المخزن)"),
+     *                 @OA\Property(property="price", type="number", format="float", nullable=true, example=150.00, description="السعر الجديد (إذا لم يتم التحديد، يتم استخدام السعر القديم)"),
+     *                 @OA\Property(property="quantity", type="integer", nullable=true, example=2, description="الكمية الجديدة (إذا لم يتم التحديد، يتم استخدام الكمية القديمة)"),
+     *                 @OA\Property(property="paid", type="number", format="float", nullable=true, example=50.00, description="المبلغ المدفوع الجديد (إذا لم يتم التحديد، يتم استخدام المبلغ المدفوع القديم)"),
+     *                 @OA\Property(property="notes", type="string", nullable=true, example="ملاحظات جديدة", description="ملاحظات جديدة للقطعة"),
+     *                 @OA\Property(property="discount_type", type="string", enum={"percentage", "fixed"}, nullable=true, example="percentage", description="نوع الخصم على القطعة"),
+     *                 @OA\Property(property="discount_value", type="number", format="float", nullable=true, example=10.00, description="قيمة الخصم (مطلوبة إذا تم تحديد discount_type)"),
+     *                 @OA\Property(property="sleeve_length", type="string", nullable=true, example="50cm", description="طول الكم"),
+     *                 @OA\Property(property="forearm", type="string", nullable=true, example="30cm", description="الزند"),
+     *                 @OA\Property(property="shoulder_width", type="string", nullable=true, example="40cm", description="عرض الكتف"),
+     *                 @OA\Property(property="cuffs", type="string", nullable=true, example="20cm", description="الإسوار"),
+     *                 @OA\Property(property="waist", type="string", nullable=true, example="80cm", description="الوسط"),
+     *                 @OA\Property(property="chest_length", type="string", nullable=true, example="90cm", description="طول الصدر"),
+     *                 @OA\Property(property="total_length", type="string", nullable=true, example="120cm", description="الطول الكلي"),
+     *                 @OA\Property(property="hinch", type="string", nullable=true, example="60cm", description="الهش"),
+     *                 @OA\Property(property="dress_size", type="string", nullable=true, example="M", description="مقاس الفستان")
  *             ))
  *         )
      *     ),

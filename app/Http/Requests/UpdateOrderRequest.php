@@ -28,6 +28,23 @@ class UpdateOrderRequest extends FormRequest
             'replace_items' => 'nullable|array',
             'replace_items.*.old_cloth_id' => 'required_with:replace_items|integer|exists:clothes,id',
             'replace_items.*.new_cloth_id' => 'required_with:replace_items|integer|exists:clothes,id',
+            // Item parameters (same as store order, except type which is inherited)
+            'replace_items.*.price' => 'nullable|numeric|min:0',
+            'replace_items.*.quantity' => 'nullable|integer|min:1',
+            'replace_items.*.paid' => 'nullable|numeric|min:0',
+            'replace_items.*.notes' => 'nullable|string',
+            'replace_items.*.discount_type' => 'nullable|string|in:percentage,fixed',
+            'replace_items.*.discount_value' => 'required_with:replace_items.*.discount_type|nullable|numeric|gt:0',
+            // Measurements
+            'replace_items.*.sleeve_length' => 'nullable|string|max:50',
+            'replace_items.*.forearm' => 'nullable|string|max:50',
+            'replace_items.*.shoulder_width' => 'nullable|string|max:50',
+            'replace_items.*.cuffs' => 'nullable|string|max:50',
+            'replace_items.*.waist' => 'nullable|string|max:50',
+            'replace_items.*.chest_length' => 'nullable|string|max:50',
+            'replace_items.*.total_length' => 'nullable|string|max:50',
+            'replace_items.*.hinch' => 'nullable|string|max:50',
+            'replace_items.*.dress_size' => 'nullable|string|max:50',
         ];
     }
 
@@ -44,6 +61,21 @@ class UpdateOrderRequest extends FormRequest
             'replace_items' => 'استبدال القطع',
             'replace_items.*.old_cloth_id' => 'معرف القطعة القديمة',
             'replace_items.*.new_cloth_id' => 'معرف القطعة الجديدة',
+            'replace_items.*.price' => 'السعر',
+            'replace_items.*.quantity' => 'الكمية',
+            'replace_items.*.paid' => 'المبلغ المدفوع',
+            'replace_items.*.notes' => 'الملاحظات',
+            'replace_items.*.discount_type' => 'نوع الخصم',
+            'replace_items.*.discount_value' => 'قيمة الخصم',
+            'replace_items.*.sleeve_length' => 'طول الكم',
+            'replace_items.*.forearm' => 'الزند',
+            'replace_items.*.shoulder_width' => 'عرض الكتف',
+            'replace_items.*.cuffs' => 'الإسوار',
+            'replace_items.*.waist' => 'الوسط',
+            'replace_items.*.chest_length' => 'طول الصدر',
+            'replace_items.*.total_length' => 'الطول الكلي',
+            'replace_items.*.hinch' => 'الهش',
+            'replace_items.*.dress_size' => 'مقاس الفستان',
         ];
     }
 
@@ -57,6 +89,11 @@ class UpdateOrderRequest extends FormRequest
             'replace_items.*.old_cloth_id.exists' => 'القطعة القديمة غير موجودة',
             'replace_items.*.new_cloth_id.required_with' => 'معرف القطعة الجديدة مطلوب',
             'replace_items.*.new_cloth_id.exists' => 'القطعة الجديدة غير موجودة',
+            'replace_items.*.price.min' => 'السعر يجب أن يكون أكبر من أو يساوي صفر',
+            'replace_items.*.quantity.min' => 'الكمية يجب أن تكون 1 على الأقل',
+            'replace_items.*.paid.min' => 'المبلغ المدفوع يجب أن يكون أكبر من أو يساوي صفر',
+            'replace_items.*.discount_value.required_with' => 'قيمة الخصم مطلوبة عند تحديد نوع الخصم',
+            'replace_items.*.discount_value.gt' => 'قيمة الخصم يجب أن تكون أكبر من صفر',
         ];
     }
 }

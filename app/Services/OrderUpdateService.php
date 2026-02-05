@@ -122,8 +122,7 @@ class OrderUpdateService
             $result = $this->replaceSingleCloth(
                 $order,
                 $inventory,
-                $replacement['old_cloth_id'],
-                $replacement['new_cloth_id'],
+                $replacement,
                 $index,
                 $user
             );
@@ -133,6 +132,9 @@ class OrderUpdateService
             }
         }
 
+        // Recalculate order totals after all replacements
+        $this->recalculateOrderTotals($order);
+
         return ['success' => true, 'error' => null];
     }
 
@@ -141,14 +143,16 @@ class OrderUpdateService
      *
      * @param Order $order
      * @param mixed $inventory
-     * @param int $oldClothId
-     * @param int $newClothId
+     * @param array $replacementData Contains old_cloth_id, new_cloth_id, and optional item parameters
      * @param int $index
      * @param mixed $user
      * @return array ['success' => bool, 'error' => array|null]
      */
-    protected function replaceSingleCloth(Order $order, $inventory, int $oldClothId, int $newClothId, int $index, $user): array
+    protected function replaceSingleCloth(Order $order, $inventory, array $replacementData, int $index, $user): array
     {
+        $oldClothId = $replacementData['old_cloth_id'];
+        $newClothId = $replacementData['new_cloth_id'];
+
         // Validate old cloth belongs to this order
         $existingItem = $order->items()->where('clothes.id', $oldClothId)->first();
         if (!$existingItem) {
@@ -216,8 +220,8 @@ class OrderUpdateService
             ];
         }
 
-        // Perform the replacement
-        $this->performClothReplacement($order, $existingItem, $newCloth, $oldClothId, $user);
+        // Perform the replacement with new item parameters
+        $this->performClothReplacement($order, $existingItem, $newCloth, $oldClothId, $replacementData, $user);
 
         return ['success' => true, 'error' => null];
     }
@@ -229,13 +233,46 @@ class OrderUpdateService
      * @param mixed $existingItem
      * @param Cloth $newCloth
      * @param int $oldClothId
+     * @param array $replacementData New item parameters from request
      * @param mixed $user
      * @return void
      */
-    protected function performClothReplacement(Order $order, $existingItem, Cloth $newCloth, int $oldClothId, $user): void
+    protected function performClothReplacement(Order $order, $existingItem, Cloth $newCloth, int $oldClothId, array $replacementData, $user): void
     {
         // Get the pivot data from old cloth
         $pivotData = $this->extractPivotData($existingItem);
+
+        // Override with new values from request (if provided)
+        if (isset($replacementData['price'])) {
+            $pivotData['price'] = (float)$replacementData['price'];
+        }
+        if (isset($replacementData['quantity'])) {
+            $pivotData['quantity'] = (int)$replacementData['quantity'];
+        }
+        if (isset($replacementData['paid'])) {
+            $pivotData['paid'] = (float)$replacementData['paid'];
+        }
+        if (isset($replacementData['notes'])) {
+            $pivotData['notes'] = $replacementData['notes'];
+        }
+        if (isset($replacementData['discount_type'])) {
+            $pivotData['discount_type'] = $replacementData['discount_type'];
+        }
+        if (isset($replacementData['discount_value'])) {
+            $pivotData['discount_value'] = (float)$replacementData['discount_value'];
+        }
+
+        // Update measurements if provided
+        $measurementFields = ['sleeve_length', 'forearm', 'shoulder_width', 'cuffs', 'waist', 'chest_length', 'total_length', 'hinch', 'dress_size'];
+        foreach ($measurementFields as $field) {
+            if (isset($replacementData[$field])) {
+                $pivotData[$field] = $replacementData[$field];
+            }
+        }
+
+        // Calculate remaining automatically: (price * quantity) - paid
+        $itemTotal = $pivotData['price'] * ($pivotData['quantity'] ?? 1);
+        $pivotData['remaining'] = max(0, $itemTotal - $pivotData['paid']);
 
         // Return old cloth to ready_for_rent
         $oldCloth = Cloth::find($oldClothId);
@@ -327,6 +364,35 @@ class OrderUpdateService
             $cloth->status = $statusMap[$type];
             $cloth->save();
         }
+    }
+
+    /**
+     * Recalculate order totals (total_price, paid, remaining) after item replacement
+     *
+     * @param Order $order
+     * @return void
+     */
+    protected function recalculateOrderTotals(Order $order): void
+    {
+        $order->refresh();
+        $order->load('items');
+
+        $totalPrice = 0;
+        $totalPaid = 0;
+
+        foreach ($order->items as $item) {
+            $quantity = $item->pivot->quantity ?? 1;
+            $itemTotal = ((float)$item->pivot->price) * (int)$quantity;
+            $totalPrice += $itemTotal;
+            $totalPaid += (float)($item->pivot->paid ?? 0);
+        }
+
+        $remaining = max(0, $totalPrice - $totalPaid);
+
+        $order->total_price = $totalPrice;
+        $order->paid = $totalPaid;
+        $order->remaining = $remaining;
+        $order->save();
     }
 }
 
