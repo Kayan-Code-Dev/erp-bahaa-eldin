@@ -650,6 +650,7 @@ class OrderController extends Controller
      *         @OA\JsonContent(
      *             required={"client_id", "entity_type", "entity_id", "visit_datetime", "items"},
      *             @OA\Property(property="client_id", type="integer", example=1),
+     *             @OA\Property(property="employee_id", type="integer", nullable=true, example=10, description="Employee ID (required for admin users; ignored for non-admin)"),
      *             @OA\Property(property="entity_type", type="string", enum={"branch", "workshop", "factory"}, example="branch", description="Entity type"),
      *             @OA\Property(property="entity_id", type="integer", example=1, description="Entity ID"),
      *             @OA\Property(property="paid", type="number", format="float", nullable=true, example=50.00, description="Initial payment amount (optional). If provided, creates initial payment and updates order status automatically"),
@@ -700,19 +701,35 @@ class OrderController extends Controller
 
         $orderService = new OrderService();
 
-        // Set employee_id from authenticated user (not from request)
+        // employee_id rules:
+        // - Admin (super admin / general_manager): if employee_id provided use it, otherwise fall back to auth employee_id
+        // - Non-admin: employee_id is taken from authenticated user (request value ignored)
         $user = $request->user();
-        $employeeId = $user?->employee?->id;
         $isAdmin = $user?->isSuperAdmin() || $user?->hasRole('general_manager');
-        if (!$employeeId && !$isAdmin) {
-            return response()->json([
-                'message' => 'Employee profile is required to create orders',
-                'errors' => [
-                    'employee' => ['User does not have an employee profile']
-                ]
-            ], 422);
+        $authEmployeeId = $user?->employee?->id;
+
+        if ($isAdmin) {
+            $data['employee_id'] = $data['employee_id'] ?? $authEmployeeId;
+
+            if (!$data['employee_id']) {
+                return response()->json([
+                    'message' => 'Employee id is required',
+                    'errors' => [
+                        'employee_id' => ['employee_id is required for admin if user has no employee profile']
+                    ]
+                ], 422);
+            }
+        } else {
+            if (!$authEmployeeId) {
+                return response()->json([
+                    'message' => 'Employee profile is required to create orders',
+                    'errors' => [
+                        'employee' => ['User does not have an employee profile']
+                    ]
+                ], 422);
+            }
+            $data['employee_id'] = $authEmployeeId;
         }
-        $data['employee_id'] = $employeeId;
 
         // Find inventory by entity_type and entity_id
         $inventory = $orderService->findInventoryByEntity($data['entity_type'], $data['entity_id']);

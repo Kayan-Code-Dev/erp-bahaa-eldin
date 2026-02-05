@@ -47,6 +47,7 @@ class StoreOrderRequest extends FormRequest
 
             'entity_type' => 'required|string|in:branch,workshop,factory',
             'entity_id' => 'required|integer',
+            'employee_id' => 'nullable|integer|exists:employees,id',
             'visit_datetime' => ['required', new MySqlDateTime()],
             'delivery_date' => 'nullable|date|after_or_equal:today',
             'days_of_rent' => 'nullable|integer|min:1',
@@ -150,6 +151,7 @@ class StoreOrderRequest extends FormRequest
             'client.phones' => 'أرقام الهاتف',
             'entity_type' => 'نوع الكيان',
             'entity_id' => 'معرف الكيان',
+            'employee_id' => 'الموظف',
             'visit_datetime' => 'موعد الزيارة',
             'delivery_date' => 'تاريخ التسليم',
             'days_of_rent' => 'أيام الإيجار',
