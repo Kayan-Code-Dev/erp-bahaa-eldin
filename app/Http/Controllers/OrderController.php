@@ -18,6 +18,7 @@ use App\Models\Factory;
 use App\Models\Client;
 use App\Models\Address;
 use App\Models\Phone;
+use App\Models\Employee;
 use App\Services\ClothHistoryService;
 use App\Services\OrderHistoryService;
 use App\Services\NotificationService;
@@ -729,6 +730,19 @@ class OrderController extends Controller
                 ], 422);
             }
             $data['employee_id'] = $authEmployeeId;
+        }
+
+        // Validate employee is assigned to the same entity as the order
+        $employee = Employee::find($data['employee_id']);
+        if ($employee && !$employee->isAssignedTo($data['entity_type'], $data['entity_id'])) {
+            return response()->json([
+                'message' => 'Employee is not assigned to this entity',
+                'errors' => [
+                    'employee_id' => ['The employee must be assigned to the same entity (branch/workshop/factory) as the order'],
+                    'entity_type' => ['Employee is not assigned to this entity type'],
+                    'entity_id' => ['Employee is not assigned to this entity']
+                ]
+            ], 422);
         }
 
         // Find inventory by entity_type and entity_id
