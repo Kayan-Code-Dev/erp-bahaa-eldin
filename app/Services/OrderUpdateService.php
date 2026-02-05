@@ -80,6 +80,33 @@ class OrderUpdateService
     }
 
     /**
+     * Update visit datetime
+     * تحديث موعد الزيارة
+     *
+     * @param Order $order
+     * @param string|null $visitDatetime
+     * @param mixed $user
+     * @return void
+     */
+    public function updateVisitDatetime(Order $order, ?string $visitDatetime, $user): void
+    {
+        $oldVisitDatetime = $order->visit_datetime;
+        $order->visit_datetime = $visitDatetime;
+        $order->save();
+
+        if ($oldVisitDatetime != $visitDatetime) {
+            $this->orderHistoryService->logUpdated(
+                $order,
+                'visit_datetime',
+                $oldVisitDatetime,
+                $visitDatetime,
+                null,
+                $user
+            );
+        }
+    }
+
+    /**
      * Replace cloths in order
      *
      * @param Order $order

@@ -186,7 +186,7 @@ class OrderService
                 'status' => 'created',
                 'paid' => $totalPaid,
                 'remaining' => $orderRemaining,
-                'visit_datetime' => now(),
+                'visit_datetime' => $data['visit_datetime'],
                 'delivery_date' => $data['delivery_date'] ?? null,
                 'days_of_rent' => $data['days_of_rent'] ?? null,
                 'occasion_datetime' => $data['occasion_datetime'] ?? null,

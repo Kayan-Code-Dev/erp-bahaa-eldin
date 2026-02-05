@@ -46,6 +46,7 @@ class StoreOrderRequest extends FormRequest
 
             'entity_type' => 'required|string|in:branch,workshop,factory',
             'entity_id' => 'required|integer',
+            'visit_datetime' => ['required', new MySqlDateTime()],
             'delivery_date' => 'nullable|date|after_or_equal:today',
             'days_of_rent' => 'nullable|integer|min:1',
             'occasion_datetime' => ['nullable', new MySqlDateTime()],
@@ -94,6 +95,7 @@ class StoreOrderRequest extends FormRequest
             'client.phones' => 'أرقام الهاتف',
             'entity_type' => 'نوع الكيان',
             'entity_id' => 'معرف الكيان',
+            'visit_datetime' => 'موعد الزيارة',
             'delivery_date' => 'تاريخ التسليم',
             'days_of_rent' => 'أيام الإيجار',
             'occasion_datetime' => 'تاريخ المناسبة',
@@ -142,6 +144,7 @@ class StoreOrderRequest extends FormRequest
             'entity_type.required' => 'نوع الكيان مطلوب',
             'entity_type.in' => 'نوع الكيان يجب أن يكون branch أو workshop أو factory',
             'entity_id.required' => 'معرف الكيان مطلوب',
+            'visit_datetime.required' => 'موعد الزيارة مطلوب',
             'items.required' => 'يجب إضافة عنصر واحد على الأقل',
             'items.min' => 'يجب إضافة عنصر واحد على الأقل',
             'items.*.cloth_id.required' => 'الملبس مطلوب',

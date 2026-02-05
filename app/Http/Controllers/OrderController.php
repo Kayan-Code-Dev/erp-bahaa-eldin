@@ -630,11 +630,12 @@ class OrderController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"client_id", "entity_type", "entity_id", "items"},
+     *             required={"client_id", "entity_type", "entity_id", "visit_datetime", "items"},
      *             @OA\Property(property="client_id", type="integer", example=1),
      *             @OA\Property(property="entity_type", type="string", enum={"branch", "workshop", "factory"}, example="branch", description="Entity type"),
      *             @OA\Property(property="entity_id", type="integer", example=1, description="Entity ID"),
      *             @OA\Property(property="paid", type="number", format="float", nullable=true, example=50.00, description="Initial payment amount (optional). If provided, creates initial payment and updates order status automatically"),
+     *             @OA\Property(property="visit_datetime", type="string", format="date-time", example="2026-02-05 10:30:00", description="موعد الزيارة. MySQL datetime format: Y-m-d H:i:s"),
      *             @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2025-12-05", description="Delivery date (تاريخ التسليم). Format: Y-m-d"),
      *             @OA\Property(property="days_of_rent", type="integer", nullable=true, example=3, description="أيام الإيجار (order level, for rent orders)"),
      *             @OA\Property(property="occasion_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25", description="تاريخ المناسبة (order level, for rent orders). MySQL datetime format: Y-m-d H:i:s"),
@@ -805,7 +806,9 @@ class OrderController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2025-12-02 23:33:25", description="تاريخ الزيارة"),
+     *             @OA\Property(property="visit_datetime", type="string", format="date-time", nullable=true, example="2026-02-05 10:30:00", description="موعد الزيارة. MySQL datetime format: Y-m-d H:i:s"),
+     *             @OA\Property(property="delivery_date", type="string", format="date", nullable=true, example="2026-02-10", description="تاريخ التسليم. Format: Y-m-d"),
+     *             @OA\Property(property="occasion_datetime", type="string", format="date-time", nullable=true, example="2026-02-12 18:00:00", description="تاريخ المناسبة. MySQL datetime format: Y-m-d H:i:s"),
      *             @OA\Property(property="replace_items", type="array", nullable=true, description="استبدال قطع الملابس", @OA\Items(
      *                 required={"old_cloth_id", "new_cloth_id"},
      *                 @OA\Property(property="old_cloth_id", type="integer", example=5, description="معرف القطعة القديمة (يجب أن تكون في الطلب)"),
@@ -848,16 +851,16 @@ class OrderController extends Controller
         $data = $request->validated();
         $user = $request->user();
 
+        // Update visit_datetime if provided
+        if (array_key_exists('visit_datetime', $data)) {
+            $orderUpdateService->updateVisitDatetime($order, $data['visit_datetime'], $user);
+        }
+
         // Update delivery_date if provided
         if (array_key_exists('delivery_date', $data)) {
             $orderUpdateService->updateDeliveryDate($order, $data['delivery_date'], $user);
         }
 
-        // Update days_of_rent if provided
-        if (array_key_exists('days_of_rent', $data)) {
-            $order->days_of_rent = $data['days_of_rent'];
-            $order->save();
-        }
 
         // Update occasion_datetime if provided
         if (array_key_exists('occasion_datetime', $data)) {
@@ -1464,16 +1467,23 @@ class OrderController extends Controller
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
      *     @OA\RequestBody(
      *         required=true,
-     *         @OA\JsonContent(
-     *             required={"items"},
-     *             @OA\Property(property="items", type="array", @OA\Items(
-     *                 type="object",
-     *                 required={"cloth_id", "status"},
-     *                 @OA\Property(property="cloth_id", type="integer", example=1),
-     *                 @OA\Property(property="status", type="string", enum={"damaged", "burned", "scratched", "ready_for_rent", "rented", "repairing", "die", "sold"}, example="ready_for_rent"),
-     *                 @OA\Property(property="photos", type="array", @OA\Items(type="string"), nullable=true, example={"photo1.jpg", "photo2.jpg"}),
-     *                 @OA\Property(property="notes", type="string", nullable=true)
-     *             ))
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 required={"items"},
+     *                 @OA\Property(
+     *                     property="items",
+     *                     type="array",
+     *                     description="قائمة القطع المراد إرجاعها",
+     *                     @OA\Items(
+     *                         type="object",
+     *                         required={"cloth_id"},
+     *                         @OA\Property(property="cloth_id", type="integer", example=1, description="معرف القطعة"),
+     *                         @OA\Property(property="notes", type="string", nullable=true, example="تم الإرجاع بحالة جيدة", description="ملاحظات الإرجاع"),
+     *                         @OA\Property(property="photos", type="array", nullable=true, description="صور الإرجاع كملفات (1-10 صور لكل قطعة، max 5MB لكل صورة)", @OA\Items(type="string", format="binary"))
+     *                     )
+     *                 )
+     *             )
      *         )
      *     ),
      *     @OA\Response(
@@ -1485,7 +1495,10 @@ class OrderController extends Controller
      *             @OA\Property(property="returned_items", type="array", @OA\Items(
      *                 type="object",
      *                 @OA\Property(property="cloth_id", type="integer", example=1),
-     *                 @OA\Property(property="status", type="string", enum={"damaged", "burned", "scratched", "ready_for_rent", "rented", "repairing", "die", "sold"}, example="ready_for_rent"),
+     *                 @OA\Property(property="cloth_code", type="string", example="CL-101"),
+     *                 @OA\Property(property="cloth_name", type="string", example="فستان أحمر"),
+     *                 @OA\Property(property="notes", type="string", nullable=true, example="تم الإرجاع بحالة جيدة"),
+ *                 @OA\Property(property="photos", type="array", nullable=true, description="مسارات الصور المخزنة في السيرفر", @OA\Items(type="string", example="cloth-return-photos/cloth-return_10_5_20260205_ABC123.jpg")),
      *                 @OA\Property(property="rent_id", type="integer", example=1)
      *             )),
      *             @OA\Property(property="order", type="object",
@@ -1551,14 +1564,24 @@ class OrderController extends Controller
         $data = $request->validate([
             'items' => 'required|array|min:1',
             'items.*.cloth_id' => 'required|integer|exists:clothes,id',
-            'items.*.status' => 'required|string|in:damaged,burned,scratched,ready_for_rent,rented,repairing,die,sold',
-            'items.*.photos' => 'nullable|array',
             'items.*.notes' => 'nullable|string',
+            // Photos are uploaded files (multipart/form-data)
+            'items.*.photos' => 'nullable|array|max:10',
+            'items.*.photos.*' => 'required_with:items.*.photos|image|mimes:jpeg,png,gif,webp,bmp|max:5120',
+        ], [
+            'items.required' => 'يجب إضافة قطعة واحدة على الأقل | At least one item is required',
+            'items.*.cloth_id.required' => 'معرف القطعة مطلوب | Cloth ID is required',
+            'items.*.cloth_id.exists' => 'القطعة غير موجودة | Cloth not found',
+            'items.*.photos.array' => 'الصور يجب أن تكون مصفوفة | Photos must be an array',
+            'items.*.photos.max' => 'لا يمكن إرسال أكثر من 10 صور لكل قطعة | Cannot send more than 10 photos per item',
+            'items.*.photos.*.image' => 'الملف يجب أن يكون صورة | File must be an image',
+            'items.*.photos.*.mimes' => 'الصورة يجب أن تكون من نوع jpeg, png, gif, webp, bmp | Image must be jpeg, png, gif, webp, or bmp',
+            'items.*.photos.*.max' => 'حجم الصورة يجب ألا يتجاوز 5 ميجابايت | Image size must not exceed 5MB',
         ]);
 
         $returnedItems = [];
 
-        foreach ($data['items'] as $itemData) {
+        foreach ($data['items'] as $index => $itemData) {
             // Validate item belongs to order
             $item = $order->items()->where('clothes.id', $itemData['cloth_id'])->first();
             if (!$item) {
@@ -1568,11 +1591,18 @@ class OrderController extends Controller
                 ], 422);
             }
 
-            // Validate item is rent type
             if ($item->pivot->type !== 'rent') {
                 return response()->json([
                     'message' => "Cloth {$itemData['cloth_id']} is not a rent item",
                     'errors' => ['items' => ["Cloth {$itemData['cloth_id']} is not a rent item"]]
+                ], 422);
+            }
+
+            // Check if already returned
+            if (!$item->pivot->returnable) {
+                return response()->json([
+                    'message' => "تم إرجاع القطعة {$itemData['cloth_id']} مسبقاً | Cloth {$itemData['cloth_id']} has already been returned",
+                    'errors' => ['items' => ["Cloth {$itemData['cloth_id']} has already been returned"]]
                 ], 422);
             }
 
@@ -1590,19 +1620,40 @@ class OrderController extends Controller
             }
 
             // Update cloth status - always set to 'repairing' when returned (needs 2 days before being available)
-            // The itemData['status'] is used for tracking the condition, but cloth status should be 'repairing'
             Cloth::where('id', $itemData['cloth_id'])->update(['status' => 'repairing']);
+
+            // Mark cloth as not returnable
+            DB::table('cloth_order')
+                ->where('order_id', $order->id)
+                ->where('cloth_id', $itemData['cloth_id'])
+                ->update(['returnable' => false]);
+
+            // Save return photos (uploaded files) if provided
+            $photoFiles = $request->file("items.$index.photos") ?? ($itemData['photos'] ?? []);
+            $uploadedPaths = [];
+            if (!empty($photoFiles)) {
+                $uploadedPaths = $this->handleClothReturnPhotoUploads($photoFiles, $order->id, $itemData['cloth_id']);
+                foreach ($uploadedPaths as $photoPath) {
+                    ClothReturnPhoto::create([
+                        'order_id' => $order->id,
+                        'cloth_id' => $itemData['cloth_id'],
+                        'photo_path' => $photoPath,
+                        'photo_type' => 'return_photo',
+                    ]);
+                }
+            }
 
             // Mark rent as completed
             $rent->status = 'completed';
+            $rent->notes = $itemData['notes'] ?? null;
             $rent->save();
-
-            // Store return photos/notes if provided (can be enhanced with a returns table)
-            // For now, we'll just track in the response
 
             $returnedItems[] = [
                 'cloth_id' => $itemData['cloth_id'],
-                'status' => $itemData['status'],
+                'cloth_code' => $item->code,
+                'cloth_name' => $item->name,
+                'notes' => $itemData['notes'] ?? null,
+                'photos' => $uploadedPaths,
                 'rent_id' => $rent->id,
             ];
         }
@@ -1611,7 +1662,7 @@ class OrderController extends Controller
         $orderHistoryService = new OrderHistoryService();
         $user = $request->user();
         foreach ($returnedItems as $returnedItem) {
-            $orderHistoryService->logItemReturned($order, $returnedItem['cloth_id'], $returnedItem['status'], $user);
+            $orderHistoryService->logItemReturned($order, $returnedItem['cloth_id'], 'returned', $user);
         }
 
         // Check if order should be finished
@@ -1639,9 +1690,7 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * Check rental availability for a cloth
-     */
+
     private function checkRentalAvailability($clothId, $deliveryDate, $daysOfRent, $excludeOrderId = null)
     {
         // Check if cloth is sold or repairing - it cannot be rented
@@ -1983,7 +2032,6 @@ class OrderController extends Controller
                 $destinationInventory = $entity->inventory;
             }
 
-            // If relationship doesn't return inventory, query directly
             if (!$destinationInventory) {
                 $destinationInventory = Inventory::where('inventoriable_type', $entityClass)
                     ->where('inventoriable_id', $request->entity_id)
@@ -2029,7 +2077,6 @@ class OrderController extends Controller
             // Update cloth status to repairing
             $cloth->update(['status' => 'repairing']);
 
-            // Transfer cloth to destination inventory
             DB::table('cloth_inventory')
                 ->where('cloth_id', $cloth->id)
                 ->delete();

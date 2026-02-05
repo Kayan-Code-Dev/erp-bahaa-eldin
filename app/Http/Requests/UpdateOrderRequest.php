@@ -21,6 +21,7 @@ class UpdateOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'visit_datetime' => ['nullable', new MySqlDateTime()],
             'delivery_date' => 'nullable|date|after_or_equal:today',
             'days_of_rent' => 'nullable|integer|min:1',
             'occasion_datetime' => ['nullable', new MySqlDateTime()],
@@ -36,6 +37,7 @@ class UpdateOrderRequest extends FormRequest
     public function attributes(): array
     {
         return [
+            'visit_datetime' => 'موعد الزيارة',
             'delivery_date' => 'تاريخ التسليم',
             'days_of_rent' => 'أيام الإيجار',
             'occasion_datetime' => 'تاريخ المناسبة',
