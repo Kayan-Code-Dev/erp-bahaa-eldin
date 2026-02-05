@@ -181,6 +181,7 @@ class OrderService
             // Create order with calculated totals
             $order = Order::create([
                 'client_id' => $data['client_id'],
+                'employee_id' => $data['employee_id'] ?? null,
                 'inventory_id' => $inventory->id,
                 'total_price' => $totalPrice,
                 'status' => 'created',

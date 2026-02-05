@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Rules\MySqlDateTime;
+use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
 {
@@ -80,6 +81,60 @@ class StoreOrderRequest extends FormRequest
     }
 
     /**
+     * Backward-compatibility: if the frontend still sends rent fields inside items,
+     * copy them to order-level fields (only if order-level is missing).
+     */
+    protected function prepareForValidation(): void
+    {
+        $items = $this->input('items', []);
+        if (!is_array($items)) {
+            return;
+        }
+
+        $firstRentItem = collect($items)->first(function ($item) {
+            return is_array($item) && (($item['type'] ?? null) === 'rent');
+        });
+
+        if (!is_array($firstRentItem)) {
+            return;
+        }
+
+        $merge = [];
+        if (!$this->filled('delivery_date') && !empty($firstRentItem['delivery_date'])) {
+            $merge['delivery_date'] = $firstRentItem['delivery_date'];
+        }
+        if (!$this->filled('days_of_rent') && !empty($firstRentItem['days_of_rent'])) {
+            $merge['days_of_rent'] = $firstRentItem['days_of_rent'];
+        }
+        if (!$this->filled('occasion_datetime') && !empty($firstRentItem['occasion_datetime'])) {
+            $merge['occasion_datetime'] = $firstRentItem['occasion_datetime'];
+        }
+
+        if (!empty($merge)) {
+            $this->merge($merge);
+        }
+    }
+
+    /**
+     * Require rent fields on the order level if any item is of type "rent".
+     */
+    public function withValidator($validator): void
+    {
+        /** @var Validator $validator */
+        $validator->sometimes('delivery_date', 'required', function ($input) {
+            return collect($input->items ?? [])->contains(fn($item) => is_array($item) && (($item['type'] ?? null) === 'rent'));
+        });
+
+        $validator->sometimes('days_of_rent', 'required', function ($input) {
+            return collect($input->items ?? [])->contains(fn($item) => is_array($item) && (($item['type'] ?? null) === 'rent'));
+        });
+
+        $validator->sometimes('occasion_datetime', 'required', function ($input) {
+            return collect($input->items ?? [])->contains(fn($item) => is_array($item) && (($item['type'] ?? null) === 'rent'));
+        });
+    }
+
+    /**
      * Get custom attribute names for validator errors.
      */
     public function attributes(): array
@@ -145,6 +200,9 @@ class StoreOrderRequest extends FormRequest
             'entity_type.in' => 'نوع الكيان يجب أن يكون branch أو workshop أو factory',
             'entity_id.required' => 'معرف الكيان مطلوب',
             'visit_datetime.required' => 'موعد الزيارة مطلوب',
+            'delivery_date.required' => 'تاريخ التسليم مطلوب للإيجار',
+            'days_of_rent.required' => 'أيام الإيجار مطلوبة للإيجار',
+            'occasion_datetime.required' => 'تاريخ المناسبة مطلوب للإيجار',
             'items.required' => 'يجب إضافة عنصر واحد على الأقل',
             'items.min' => 'يجب إضافة عنصر واحد على الأقل',
             'items.*.cloth_id.required' => 'الملبس مطلوب',

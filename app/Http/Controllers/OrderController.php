@@ -401,6 +401,7 @@ class OrderController extends Controller
      *     @OA\Parameter(name="per_page", in="query", required=false, description="Items per page", @OA\Schema(type="integer", default=15)),
      *     @OA\Parameter(name="status", in="query", required=false, description="Filter by order status", @OA\Schema(type="string", enum={"created", "partially_paid", "paid", "delivered", "finished", "canceled"})),
      *     @OA\Parameter(name="client_id", in="query", required=false, description="Filter by client ID", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="employee_id", in="query", required=false, description="Filter by employee ID (admin can filter any, non-admin only own)", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="date_from", in="query", required=false, description="Filter orders created from date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="date_to", in="query", required=false, description="Filter orders created to date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="visit_from", in="query", required=false, description="Filter by visit datetime from date (YYYY-MM-DD)", @OA\Schema(type="string", format="date")),
@@ -491,6 +492,23 @@ class OrderController extends Controller
         // Filter by client_id
         if ($request->has('client_id') && $request->query('client_id')) {
             $query->where('client_id', $request->query('client_id'));
+        }
+
+        // Filter by employee_id (admins can filter any employee; non-admins can only filter themselves)
+        if ($request->has('employee_id') && $request->query('employee_id')) {
+            $employeeId = (int) $request->query('employee_id');
+            $user = $request->user();
+            $isAdmin = $user?->isSuperAdmin() || $user?->hasRole('general_manager');
+            $myEmployeeId = $user?->employee?->id;
+
+            if (!$isAdmin && $myEmployeeId && $employeeId !== (int) $myEmployeeId) {
+                return response()->json([
+                    'message' => 'Unauthorized employee filter',
+                    'errors' => ['employee_id' => ['You can only filter your own orders']]
+                ], 403);
+            }
+
+            $query->where('employee_id', $employeeId);
         }
 
         // Filter by date range (created_at)
@@ -682,6 +700,20 @@ class OrderController extends Controller
 
         $orderService = new OrderService();
 
+        // Set employee_id from authenticated user (not from request)
+        $user = $request->user();
+        $employeeId = $user?->employee?->id;
+        $isAdmin = $user?->isSuperAdmin() || $user?->hasRole('general_manager');
+        if (!$employeeId && !$isAdmin) {
+            return response()->json([
+                'message' => 'Employee profile is required to create orders',
+                'errors' => [
+                    'employee' => ['User does not have an employee profile']
+                ]
+            ], 422);
+        }
+        $data['employee_id'] = $employeeId;
+
         // Find inventory by entity_type and entity_id
         $inventory = $orderService->findInventoryByEntity($data['entity_type'], $data['entity_id']);
 
@@ -772,7 +804,6 @@ class OrderController extends Controller
         // Set client_id in data for order creation
         $data['client_id'] = $clientId;
 
-        $user = $request->user();
         $result = $orderService->store($data, $inventory, $user);
 
         if ($result['errors']) {

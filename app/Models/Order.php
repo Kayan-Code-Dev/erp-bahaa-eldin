@@ -15,6 +15,7 @@ class Order extends Model
 
     protected $fillable = [
         'client_id',
+        'employee_id',
         'inventory_id',
         'total_price',
         'status',
@@ -41,6 +42,7 @@ class Order extends Model
 
     protected $casts = [
         'delivery_date' => 'date',
+        'employee_id' => 'integer',
         'days_of_rent' => 'integer',
         'occasion_datetime' => 'datetime',
         'tailoring_stage_changed_at' => 'datetime',
@@ -147,6 +149,11 @@ class Order extends Model
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
     }
 
     public function inventory()
